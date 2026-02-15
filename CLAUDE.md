@@ -1,0 +1,64 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+MCP server exposing Korea's MOLIT (국토교통부) real estate transaction API to Claude Desktop. The server wraps `apis.data.go.kr` XML endpoints and provides 9 tools for querying apartment, officetel, villa, single-house, and commercial trade/rent data.
+
+Requires `DATA_GO_KR_API_KEY` from [공공데이터포털](https://www.data.go.kr) in a `.env` file at the project root.
+
+## Commands
+
+```bash
+# Run all tests (requires .env with valid key, or monkeypatched key)
+uv run pytest
+
+# Run a single test file
+uv run pytest tests/mcp_server/test_apartment_trades.py
+
+# Run a single test by name
+uv run pytest tests/mcp_server/test_apartment_trades.py::TestParseAptTrades::test_normal_response_returns_items
+
+# Lint + format (auto-fix)
+uv run ruff check --fix && uv run ruff format
+
+# Type check
+uv run pyright
+
+# Security scan
+uv run bandit -c pyproject.toml -r src/
+
+# Start MCP Inspector for interactive testing
+uv run mcp dev src/real_estate/mcp_server/server.py
+```
+
+## Architecture
+
+All MCP logic lives in a single file: [src/real_estate/mcp_server/server.py](src/real_estate/mcp_server/server.py).
+
+**Request flow for any trade/rent tool:**
+1. `_check_api_key()` — guard: fails fast if env var is missing
+2. `_build_url()` — constructs URL with `serviceKey` embedded directly (not via httpx params, to avoid double URL-encoding)
+3. `_fetch_xml()` — async HTTP GET via httpx with 15s timeout
+4. Parser function (`_parse_*`) — parses defusedxml, filters cancelled deals (`cdealType == "O"`), returns `(items, error_code)`
+5. `_build_trade_summary()` / `_build_rent_summary()` — computes median/min/max statistics
+6. Returns standardised dict: `{total_count, items, summary}` or `{error, message}`
+
+**Shared helpers for both trade and rent flows:**
+- `_run_trade_tool(base_url, parser, ...)` — wires steps 1–5 for sale tools
+- `_run_rent_tool(base_url, parser, ...)` — same for lease/rent tools
+
+**Region code resolution** ([src/real_estate/data/region_code.py](src/real_estate/data/region_code.py)):
+- Loads `src/real_estate/resources/region_codes.txt` (tab-separated: 10-digit code, name, status)
+- `get_region_code` tool must be called first; returns the 5-digit `LAWD_CD` used by all trade/rent tools
+- Gu/gun-level rows (last 5 digits `00000`) are preferred as the canonical match
+
+**Key design constraints:**
+- Prices are in 만원 (10,000 KRW) units, field suffix `_10k`
+- `jeonse_ratio_pct` is always `null` from rent tools; callers compute it from trade and rent medians
+- Commercial trade parser uses different field names (`building_type`, `building_use`, `building_ar`) vs residential tools (`unit_name`, `area_sqm`)
+
+## Testing Conventions
+
+Tests use `respx` to mock `httpx` calls — the real API is never called in unit tests. Each tool has its own test file under `tests/mcp_server/`. Coverage threshold is 80% (enforced by pytest-cov). `asyncio_mode = "auto"` is set so async tests require no extra decorator.
