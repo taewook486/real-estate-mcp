@@ -84,6 +84,15 @@ _ONBID_THING_INFO_LIST_URL = (
     "http://openapi.onbid.co.kr/openapi/services/ThingInfoInquireSvc/getUnifyUsageCltr"
 )
 
+_ONBID_CODE_INFO_BASE_URL = "http://openapi.onbid.co.kr/openapi/services/OnbidCodeInfoInquireSvc"
+_ONBID_CODE_TOP_URL = f"{_ONBID_CODE_INFO_BASE_URL}/getOnbidTopCodeInfo"
+_ONBID_CODE_MIDDLE_URL = f"{_ONBID_CODE_INFO_BASE_URL}/getOnbidMiddleCodeInfo"
+_ONBID_CODE_BOTTOM_URL = f"{_ONBID_CODE_INFO_BASE_URL}/getOnbidBottomCodeInfo"
+_ONBID_ADDR1_URL = f"{_ONBID_CODE_INFO_BASE_URL}/getOnbidAddr1Info"
+_ONBID_ADDR2_URL = f"{_ONBID_CODE_INFO_BASE_URL}/getOnbidAddr2Info"
+_ONBID_ADDR3_URL = f"{_ONBID_CODE_INFO_BASE_URL}/getOnbidAddr3Info"
+_ONBID_DTL_ADDR_URL = f"{_ONBID_CODE_INFO_BASE_URL}/getOnbidDtlAddrInfo"
+
 _ERROR_MESSAGES: dict[str, str] = {
     "03": "No trade records found for the specified region and period.",
     "10": "Invalid API request parameters.",
@@ -1364,6 +1373,69 @@ def _parse_onbid_thing_info_list_xml(
     return items, _get_total_count_onbid(root), None, None
 
 
+def _parse_onbid_code_info_xml(
+    xml_text: str,
+) -> tuple[list[dict[str, Any]], int, str | None, str | None]:
+    """Parse OnbidCodeInfoInquireSvc XML response into a list of dict records."""
+    root = xml_fromstring(xml_text)
+    result_code = (root.findtext(".//resultCode") or "").strip()
+    result_msg = (root.findtext(".//resultMsg") or "").strip()
+    if result_code != "00":
+        return [], 0, result_code or None, result_msg or None
+
+    items: list[dict[str, Any]] = []
+    for item in root.findall(".//item"):
+        record: dict[str, Any] = {}
+        for child in list(item):
+            record[child.tag] = (child.text or "").strip()
+        items.append(record)
+
+    return items, _get_total_count_onbid(root), None, None
+
+
+async def _run_onbid_code_info_tool(
+    endpoint_url: str,
+    params: dict[str, Any],
+) -> dict[str, Any]:
+    """Fetch and parse an OnbidCodeInfoInquireSvc response.
+
+    Returns:
+        total_count/items/page_no/num_of_rows or an error dict.
+    """
+    err = _check_onbid_api_key()
+    if err:
+        return err
+
+    page_no = int(params.get("pageNo") or 1)
+    num_of_rows = int(params.get("numOfRows") or 10)
+
+    service_key = _get_data_go_kr_key_for_onbid()
+    url = _build_url_with_service_key(endpoint_url, service_key, params)
+    xml_text, fetch_err = await _fetch_xml(url)
+    if fetch_err:
+        return fetch_err
+    assert xml_text is not None
+
+    try:
+        items, total_count, error_code, error_message = _parse_onbid_code_info_xml(xml_text)
+    except XmlParseError as exc:
+        return {"error": "parse_error", "message": f"XML parse failed: {exc}"}
+
+    if error_code is not None:
+        return {
+            "error": "api_error",
+            "code": error_code,
+            "message": error_message or "Onbid API error",
+        }
+
+    return {
+        "total_count": total_count,
+        "items": items,
+        "page_no": page_no,
+        "num_of_rows": num_of_rows,
+    }
+
+
 @mcp.tool()
 async def get_public_auction_items(
     page_no: int = 1,
@@ -1673,6 +1745,178 @@ async def get_onbid_thing_info_list(
         "page_no": page_no,
         "num_of_rows": num_of_rows,
     }
+
+
+# ---------------------------------------------------------------------------
+# Onbid code lookup tools (OnbidCodeInfoInquireSvc)
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool()
+async def get_onbid_top_code_info(
+    page_no: int = 1,
+    num_of_rows: int = 100,
+) -> dict[str, Any]:
+    """Return Onbid top-level usage/category codes.
+
+    Korean keywords: 온비드 코드, 용도 코드, 카테고리 코드, 코드조회, CTGR_HIRK_ID
+
+    Use this tool to discover the top-level CTGR_ID values, then call
+    get_onbid_middle_code_info / get_onbid_bottom_code_info to drill down.
+    These codes are needed to fill ThingInfoInquireSvc parameters such as
+    CTGR_HIRK_ID and CTGR_HIRK_ID_MID.
+
+    Returns raw records containing:
+      - CTGR_ID, CTGR_NM, CTGR_HIRK_ID, CTGR_HIRK_NM
+    """
+    if page_no < 1:
+        return {"error": "validation_error", "message": "page_no must be >= 1"}
+    if num_of_rows < 1:
+        return {"error": "validation_error", "message": "num_of_rows must be >= 1"}
+
+    return await _run_onbid_code_info_tool(
+        _ONBID_CODE_TOP_URL, {"pageNo": page_no, "numOfRows": num_of_rows}
+    )
+
+
+@mcp.tool()
+async def get_onbid_middle_code_info(
+    ctgr_id: str,
+    page_no: int = 1,
+    num_of_rows: int = 100,
+) -> dict[str, Any]:
+    """Return Onbid middle-level usage/category codes under a parent CTGR_ID.
+
+    Korean keywords: 온비드 코드, 용도 중간, 카테고리 중간, 코드조회, CTGR_HIRK_ID_MID
+
+    Args:
+        ctgr_id: Parent CTGR_ID from get_onbid_top_code_info (e.g. "10000").
+    """
+    if not ctgr_id.strip():
+        return {"error": "validation_error", "message": "ctgr_id is required"}
+    if page_no < 1:
+        return {"error": "validation_error", "message": "page_no must be >= 1"}
+    if num_of_rows < 1:
+        return {"error": "validation_error", "message": "num_of_rows must be >= 1"}
+
+    return await _run_onbid_code_info_tool(
+        _ONBID_CODE_MIDDLE_URL,
+        {"pageNo": page_no, "numOfRows": num_of_rows, "CTGR_ID": ctgr_id},
+    )
+
+
+@mcp.tool()
+async def get_onbid_bottom_code_info(
+    ctgr_id: str,
+    page_no: int = 1,
+    num_of_rows: int = 100,
+) -> dict[str, Any]:
+    """Return Onbid bottom-level usage/category codes under a parent CTGR_ID.
+
+    Korean keywords: 온비드 코드, 용도 하위, 카테고리 하위, 코드조회
+
+    Args:
+        ctgr_id: Parent CTGR_ID from get_onbid_middle_code_info (e.g. "10100").
+    """
+    if not ctgr_id.strip():
+        return {"error": "validation_error", "message": "ctgr_id is required"}
+    if page_no < 1:
+        return {"error": "validation_error", "message": "page_no must be >= 1"}
+    if num_of_rows < 1:
+        return {"error": "validation_error", "message": "num_of_rows must be >= 1"}
+
+    return await _run_onbid_code_info_tool(
+        _ONBID_CODE_BOTTOM_URL,
+        {"pageNo": page_no, "numOfRows": num_of_rows, "CTGR_ID": ctgr_id},
+    )
+
+
+@mcp.tool()
+async def get_onbid_addr1_info(
+    page_no: int = 1,
+    num_of_rows: int = 100,
+) -> dict[str, Any]:
+    """Return Onbid address depth-1 list (시/도).
+
+    Korean keywords: 온비드 주소 코드, 시도, 주소1, 코드조회
+    """
+    if page_no < 1:
+        return {"error": "validation_error", "message": "page_no must be >= 1"}
+    if num_of_rows < 1:
+        return {"error": "validation_error", "message": "num_of_rows must be >= 1"}
+
+    return await _run_onbid_code_info_tool(
+        _ONBID_ADDR1_URL, {"pageNo": page_no, "numOfRows": num_of_rows}
+    )
+
+
+@mcp.tool()
+async def get_onbid_addr2_info(
+    addr1: str,
+    page_no: int = 1,
+    num_of_rows: int = 100,
+) -> dict[str, Any]:
+    """Return Onbid address depth-2 list (시/군/구) under addr1.
+
+    Korean keywords: 온비드 주소 코드, 시군구, 주소2, 코드조회
+    """
+    if not addr1.strip():
+        return {"error": "validation_error", "message": "addr1 is required"}
+    if page_no < 1:
+        return {"error": "validation_error", "message": "page_no must be >= 1"}
+    if num_of_rows < 1:
+        return {"error": "validation_error", "message": "num_of_rows must be >= 1"}
+
+    return await _run_onbid_code_info_tool(
+        _ONBID_ADDR2_URL,
+        {"pageNo": page_no, "numOfRows": num_of_rows, "ADDR1": addr1},
+    )
+
+
+@mcp.tool()
+async def get_onbid_addr3_info(
+    addr2: str,
+    page_no: int = 1,
+    num_of_rows: int = 100,
+) -> dict[str, Any]:
+    """Return Onbid address depth-3 list (읍/면/동) under addr2.
+
+    Korean keywords: 온비드 주소 코드, 읍면동, 주소3, 코드조회
+    """
+    if not addr2.strip():
+        return {"error": "validation_error", "message": "addr2 is required"}
+    if page_no < 1:
+        return {"error": "validation_error", "message": "page_no must be >= 1"}
+    if num_of_rows < 1:
+        return {"error": "validation_error", "message": "num_of_rows must be >= 1"}
+
+    return await _run_onbid_code_info_tool(
+        _ONBID_ADDR3_URL,
+        {"pageNo": page_no, "numOfRows": num_of_rows, "ADDR2": addr2},
+    )
+
+
+@mcp.tool()
+async def get_onbid_dtl_addr_info(
+    addr3: str,
+    page_no: int = 1,
+    num_of_rows: int = 100,
+) -> dict[str, Any]:
+    """Return Onbid detailed addresses under addr3.
+
+    Korean keywords: 온비드 주소 코드, 상세주소, 코드조회
+    """
+    if not addr3.strip():
+        return {"error": "validation_error", "message": "addr3 is required"}
+    if page_no < 1:
+        return {"error": "validation_error", "message": "page_no must be >= 1"}
+    if num_of_rows < 1:
+        return {"error": "validation_error", "message": "num_of_rows must be >= 1"}
+
+    return await _run_onbid_code_info_tool(
+        _ONBID_DTL_ADDR_URL,
+        {"pageNo": page_no, "numOfRows": num_of_rows, "ADDR3": addr3},
+    )
 
 
 if __name__ == "__main__":
