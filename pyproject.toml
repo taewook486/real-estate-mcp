@@ -21,6 +21,7 @@ dependencies = [
     "mcp[cli]>=1.0.0",
     # Agent Framework (preview)
     "agent-framework>=1.0.0b0",
+    "python-dotenv>=1.2.1",
 ]
 
 [build-system]
