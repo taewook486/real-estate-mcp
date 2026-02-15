@@ -198,7 +198,7 @@ async def get_apartment_trades(
 
     params = {
         "serviceKey": api_key,
-        "LAWd_CD": region_code,
+        "LAWD_CD": region_code,
         "DEAL_YMD": year_month,
         "numOfRows": str(num_of_rows),
         "pageNo": "1",
