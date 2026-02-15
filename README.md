@@ -1,2 +1,55 @@
 # Korea Real Estate OpenAPI for Claude
 
+MCP server for querying Korea's apartment trade data (국토교통부 실거래가 API) through Claude.
+
+## Prerequisites: Environment Variables
+
+Set the API key before running the MCP server.
+
+Create a `.env` file in the project root:
+
+```
+DATA_GO_KR_API_KEY=your_api_key_here
+```
+
+Obtain the API key from [공공데이터포털](https://www.data.go.kr).
+Service name: 국토교통부_아파트매매_실거래가_자료
+
+`.env` is listed in `.gitignore` and will not be committed.
+Both MCP Inspector and Claude Desktop require this key to function correctly.
+
+## Testing with MCP Inspector
+
+Test the MCP tools directly over the MCP protocol locally.
+
+```bash
+uv run mcp dev src/real_estate/mcp_server/server.py
+```
+
+Open `http://localhost:6274` in a browser, then:
+
+1. Add `DATA_GO_KR_API_KEY` under **Environment Variables**
+2. Click **Connect**
+3. Call `get_region_code` first, then `get_apartment_trades`
+
+Inspector does not load `.env` automatically — the API key must be entered directly in the UI.
+
+## Registering with Claude Desktop
+
+Add the following to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "real-estate": {
+      "command": "uv",
+      "args": ["run", "--directory", "/absolute/path/to/claude-real-estate-openapi", "python", "src/real_estate/mcp_server/server.py"],
+      "env": {
+        "DATA_GO_KR_API_KEY": "your_api_key_here"
+      }
+    }
+  }
+}
+```
+
+Specify the API key in the `env` block, or set it as a system environment variable beforehand.

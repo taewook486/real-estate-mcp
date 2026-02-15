@@ -1,11 +1,11 @@
-"""법정동코드 로컬 파일 검색 모듈.
+"""Legal district code lookup module.
 
-국토교통부 실거래가 API 파라미터(LAWd_CD)에 사용하는
-법정동코드 5자리를 사용자 입력 텍스트에서 찾아 반환한다.
+Finds the 5-digit legal district code (LAWD_CD) used as the API parameter
+for the MOLIT apartment trade API from free-form user input.
 
-파일 내 코드는 10자리(예: 1144000000)이며,
-API는 앞 5자리(예: 11440)를 사용한다.
-구/군 단위 행은 10자리 중 끝 5자리가 "00000"인 행이다.
+Codes in the file are 10 digits (e.g. 1144000000).
+The API uses only the first 5 digits (e.g. 11440).
+Rows representing a gu/gun district have "00000" in the last 5 digits.
 """
 
 from pathlib import Path
@@ -15,16 +15,16 @@ REGION_FILE = Path(__file__).parent.parent / "resources" / "region_codes.txt"
 
 
 class RegionMatch(TypedDict):
-    """단일 매칭 결과."""
+    """A single match result."""
 
-    code: str  # 원본 10자리 코드
+    code: str  # Original 10-digit code
     name: str
 
 
 class RegionResult(TypedDict, total=False):
-    """search_region_code 반환 타입."""
+    """Return type of search_region_code."""
 
-    region_code: str  # API 파라미터용 5자리 코드
+    region_code: str  # 5-digit code for the API parameter
     full_name: str
     matches: list[RegionMatch]
     error: str
@@ -32,14 +32,14 @@ class RegionResult(TypedDict, total=False):
 
 
 def _load_region_rows() -> list[tuple[str, str]]:
-    """파일에서 (코드, 법정동명) 행을 로드한다.
+    """Load (code, name) rows from the region code file.
 
     Returns:
-        폐지되지 않은 (10자리 코드, 이름) 튜플 리스트.
+        List of (10-digit code, name) tuples for active districts.
     """
     rows: list[tuple[str, str]] = []
     with REGION_FILE.open(encoding="utf-8") as f:
-        next(f)  # 헤더 스킵
+        next(f)  # skip header
         for line in f:
             parts = line.rstrip("\n").split("\t")
             if len(parts) < 3:
@@ -51,70 +51,69 @@ def _load_region_rows() -> list[tuple[str, str]]:
 
 
 def _to_api_code(ten_digit: str) -> str:
-    """10자리 법정동코드에서 API용 5자리 코드를 추출한다.
+    """Extract the 5-digit API code from a 10-digit legal district code.
 
     Parameters:
-        ten_digit: 10자리 법정동코드 (예: "1144000000")
+        ten_digit: 10-digit legal district code (e.g. "1144000000")
 
     Returns:
-        앞 5자리 문자열 (예: "11440")
+        First 5 digits as a string (e.g. "11440")
     """
     return ten_digit[:5]
 
 
 def _is_gu_gun(ten_digit: str) -> bool:
-    """구/군 단위 행인지 판별한다 (끝 5자리가 "00000").
+    """Return True if the code represents a gu/gun-level district (last 5 digits are "00000").
 
     Parameters:
-        ten_digit: 10자리 법정동코드
-
-    Returns:
-        구/군 단위이면 True.
+        ten_digit: 10-digit legal district code
     """
     return ten_digit[5:] == "00000"
 
 
 def search_region_code(query: str) -> RegionResult:
-    """사용자 입력 지역명을 법정동코드로 변환한다.
+    """Convert a free-form region name to a legal district code.
 
     Parameters:
-        query: 사용자 자유 입력 텍스트 (예: "마포구", "서울 마포구 공덕동")
+        query: Free-form user input (e.g. "마포구", "서울 마포구 공덕동")
 
     Returns:
-        region_code: API 파라미터용 5자리 코드 (예: "11440")
-        full_name: 대표 매칭 법정동명
-        matches: 모든 매칭 결과의 원본 10자리 코드와 이름
-        error/message: 매칭 없음 또는 파일 오류 시
+        region_code: 5-digit API parameter code (e.g. "11440")
+        full_name: Name of the best-matched district
+        matches: All matching results with original 10-digit codes and names
+        error/message: Present when no match is found or the file is missing
 
     Notes:
-        - 구/군 단위 행(끝 5자리 "00000")이 있으면 그것을 대표로 채택한다.
-        - 복수 매칭 시 matches 배열을 Claude가 사용자에게 확인하도록 한다.
+        - If a gu/gun-level row (last 5 digits "00000") exists among matches,
+          it is selected as the representative result.
+        - On multiple matches, the matches array should be shown to the user
+          for confirmation before selecting a region_code.
     """
     query = query.strip()
     if not query:
-        return {"error": "invalid_input", "message": "지역명을 입력해 주세요."}
+        return {"error": "invalid_input", "message": "Region name must not be empty."}
 
     try:
         rows = _load_region_rows()
     except FileNotFoundError:
-        return {"error": "file_not_found", "message": "법정동코드 파일을 찾을 수 없습니다."}
+        return {"error": "file_not_found", "message": "Region code file not found."}
 
-    # 쿼리 토큰 분리: "서울 마포구" → ["서울", "마포구"] 모두 포함하는 행 필터
+    # Split query into tokens: "서울 마포구" → ["서울", "마포구"], keep rows matching all tokens
     tokens = query.split()
     matched = [(code, name) for code, name in rows if all(tok in name for tok in tokens)]
 
     if not matched:
         return {
             "error": "no_match",
-            "message": f"입력한 지역명을 찾을 수 없습니다: {query}",
+            "message": f"No region found for: {query}",
         }
 
-    # 구/군 단위(끝 5자리 "00000") 우선, 그 다음 코드 오름차순
+    # Gu/gun-level rows first, then ascending by code
     matched.sort(key=lambda x: (not _is_gu_gun(x[0]), x[0]))
 
     matches: list[RegionMatch] = [{"code": c, "name": n} for c, n in matched]
 
-    # 구/군 단위 행이 있으면 우선 채택, 없으면 첫 번째 매칭
+    # Prefer gu/gun-level row; fall back to first match
     gu_gun = [(c, n) for c, n in matched if _is_gu_gun(c)]
     best_code, best_name = gu_gun[0] if gu_gun else matched[0]
 

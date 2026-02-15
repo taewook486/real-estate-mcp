@@ -59,3 +59,19 @@ For multi-step tasks, state a brief plan:
 ```
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+
+## 5. Test Against Real Code, Not Substitutes
+
+**Call the actual code. Don't simulate what it does.**
+
+When testing:
+- Test by directly invoking the code under test — the real function, the real API call, the real tool.
+- Never substitute a part of the code with a mock or stub unless explicitly agreed with the user.
+- Mocks and stubs hide real bugs: network errors, parsing failures, schema mismatches, auth issues all disappear behind fake responses.
+
+When mocking is necessary (e.g., paid APIs, irreversible side effects):
+- Propose it to the user first. Explain what will NOT be tested as a result.
+- Limit the mock to the minimum surface — never mock the code being tested itself.
+- Document clearly: "This test does not cover X because Y is mocked."
+
+The rule: If your test never executes the real code path end-to-end, it is not a test — it is a hypothesis.

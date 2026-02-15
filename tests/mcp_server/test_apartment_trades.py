@@ -1,6 +1,6 @@
-"""get_apartment_trades 도구 단위 테스트.
+"""Unit tests for the get_apartment_trades tool.
 
-httpx 호출은 respx로 mock 처리하여 실제 API를 호출하지 않는다.
+HTTP calls are mocked with respx so the real API is never called.
 """
 
 import pytest
@@ -14,7 +14,7 @@ from real_estate.mcp_server.server import (
 )
 
 # ---------------------------------------------------------------------------
-# 테스트 픽스처: XML 응답 샘플
+# Test fixtures: sample XML responses
 # ---------------------------------------------------------------------------
 
 _XML_OK = """<?xml version="1.0" encoding="UTF-8"?>
@@ -85,52 +85,52 @@ _API_URL = "https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAp
 
 
 # ---------------------------------------------------------------------------
-# _parse_trades 단위 테스트
+# _parse_trades unit tests
 # ---------------------------------------------------------------------------
 
 
 class TestParseTrades:
-    """XML 파싱 로직 단위 테스트."""
+    """Unit tests for XML parsing logic."""
 
     def test_normal_response_returns_items(self) -> None:
-        """정상 XML에서 해제 건 제외 후 2건 반환."""
+        """Normal XML returns 2 items after excluding the cancelled deal."""
         items, error_code = _parse_trades(_XML_OK)
         assert error_code is None
-        assert len(items) == 2  # 해제 건(cdealType=O) 제외
+        assert len(items) == 2  # cdealType=O item excluded
 
     def test_deal_amount_comma_removed(self) -> None:
-        """dealAmount 콤마가 제거되어 int로 변환."""
+        """Commas in dealAmount are stripped and converted to int."""
         items, _ = _parse_trades(_XML_OK)
         assert items[0]["price_10k"] == 135000
 
     def test_trade_date_formatted(self) -> None:
-        """날짜가 YYYY-MM-DD 형식으로 조합."""
+        """Trade date is combined into YYYY-MM-DD format."""
         items, _ = _parse_trades(_XML_OK)
         assert items[0]["trade_date"] == "2025-01-15"
 
     def test_cancelled_deal_excluded(self) -> None:
-        """cdealType=O 건은 결과에 포함되지 않음."""
+        """Items with cdealType=O are not included in the result."""
         items, _ = _parse_trades(_XML_OK)
         names = [it["apt_name"] for it in items]
         assert "취소단지" not in names
 
     def test_error_code_returned_on_no_data(self) -> None:
-        """resultCode가 000이 아니면 error_code 반환."""
+        """A resultCode other than 000 returns an error_code."""
         items, error_code = _parse_trades(_XML_NO_DATA)
         assert error_code == "03"
         assert items == []
 
 
 # ---------------------------------------------------------------------------
-# _build_summary 단위 테스트
+# _build_summary unit tests
 # ---------------------------------------------------------------------------
 
 
 class TestBuildSummary:
-    """통계 요약 계산 단위 테스트."""
+    """Unit tests for summary statistics calculation."""
 
     def test_summary_values(self) -> None:
-        """중앙값·최소·최대·건수 정확히 계산."""
+        """Median, min, max, and count are calculated correctly."""
         items = [{"price_10k": 90000}, {"price_10k": 135000}]
         summary = _build_summary(items)
         assert summary["median_price_10k"] == 112500
@@ -139,28 +139,28 @@ class TestBuildSummary:
         assert summary["sample_count"] == 2
 
     def test_empty_items_returns_zeros(self) -> None:
-        """빈 목록이면 모든 값 0."""
+        """An empty list returns all zeros."""
         summary = _build_summary([])
         assert summary["sample_count"] == 0
         assert summary["median_price_10k"] == 0
 
 
 # ---------------------------------------------------------------------------
-# get_apartment_trades 통합 테스트 (respx mock)
+# get_apartment_trades integration tests (respx mock)
 # ---------------------------------------------------------------------------
 
 
 class TestGetApartmentTrades:
-    """get_apartment_trades 도구 통합 테스트."""
+    """Integration tests for the get_apartment_trades tool."""
 
     @pytest.fixture(autouse=True)
     def set_api_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """테스트용 API 키 환경변수 설정."""
+        """Set a test API key environment variable."""
         monkeypatch.setenv("DATA_GO_KR_API_KEY", "test-key")
 
     @respx.mock
     async def test_success_returns_items_and_summary(self) -> None:
-        """정상 응답 시 items + summary 반환."""
+        """A successful response returns items and summary."""
         respx.get(_API_URL).mock(return_value=Response(200, text=_XML_OK))
 
         result = await get_apartment_trades("11440", "202501")
@@ -172,7 +172,7 @@ class TestGetApartmentTrades:
 
     @respx.mock
     async def test_no_data_returns_api_error(self) -> None:
-        """데이터 없음(코드 03) 시 error dict 반환."""
+        """A no-data response (code 03) returns an error dict."""
         respx.get(_API_URL).mock(return_value=Response(200, text=_XML_NO_DATA))
 
         result = await get_apartment_trades("11440", "200001")
@@ -182,7 +182,7 @@ class TestGetApartmentTrades:
 
     @respx.mock
     async def test_timeout_returns_network_error(self) -> None:
-        """타임아웃 시 network_error 반환."""
+        """A timeout returns a network_error."""
         import httpx as _httpx
 
         respx.get(_API_URL).mock(side_effect=_httpx.TimeoutException("timeout"))
@@ -194,7 +194,7 @@ class TestGetApartmentTrades:
     async def test_missing_api_key_returns_config_error(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """API 키 미설정 시 config_error 반환."""
+        """A missing API key returns a config_error."""
         monkeypatch.delenv("DATA_GO_KR_API_KEY", raising=False)
 
         result = await get_apartment_trades("11440", "202501")

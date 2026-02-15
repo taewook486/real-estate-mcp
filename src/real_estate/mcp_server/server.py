@@ -1,11 +1,11 @@
-"""부동산 실거래가 MCP 서버.
+"""Real estate transaction MCP server.
 
-Claude Desktop에 등록하여 자연어 대화로
-법정동코드 조회 및 아파트 매매 실거래가를 조회한다.
+Register with Claude Desktop to query region codes and
+apartment trade records through natural language.
 
-도구 2개:
-  - get_region_code: 지역명 → 법정동코드 5자리
-  - get_apartment_trades: 법정동코드 + 연월 → 실거래 목록 + 통계 요약
+Tools:
+  - get_region_code: region name → 5-digit legal district code
+  - get_apartment_trades: legal district code + year-month → trade list + summary stats
 """
 
 import os
@@ -20,10 +20,10 @@ from defusedxml.ElementTree import fromstring as xml_fromstring
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 
-# 프로젝트 루트의 .env 로드 (파일 없어도 무시)
+# Load .env from project root (ignored if file is absent)
 load_dotenv(Path(__file__).parent.parent.parent.parent / ".env")
 
-from real_estate.data.region_code import RegionResult, search_region_code  # noqa: E402
+from real_estate.data.region_code import search_region_code  # noqa: E402
 
 mcp = FastMCP("real-estate")
 
@@ -31,46 +31,46 @@ _API_BASE = "https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcA
 
 
 # ---------------------------------------------------------------------------
-# 도구 1: 지역명 → 법정동코드
+# Tool 1: region name → legal district code
 # ---------------------------------------------------------------------------
 
 
 @mcp.tool()
-def get_region_code(query: str) -> RegionResult:
-    """사용자가 입력한 지역명을 국토교통부 API용 법정동코드(5자리)로 변환한다.
+def get_region_code(query: str) -> dict[str, Any]:
+    """Convert a user-supplied region name to a 5-digit legal district code for the MOLIT API.
 
-    get_apartment_trades 호출 전에 반드시 먼저 호출해야 한다.
-    "마포구", "서울 마포구", "마포구 공덕동" 같은 자유 텍스트를 입력받는다.
+    Must be called before get_apartment_trades.
+    Accepts free-form text such as "마포구", "서울 마포구", or "마포구 공덕동".
 
-    복수 매칭이 반환되면 matches 배열을 사용자에게 보여주고
-    어떤 지역인지 확인한 후 region_code를 선택해야 한다.
+    If multiple matches are returned, show the matches array to the user
+    and confirm which region they mean before selecting a region_code.
 
     Args:
-        query: 사용자가 언급한 지역명 자유 텍스트.
+        query: Free-form region name text supplied by the user.
 
     Returns:
-        region_code: API 파라미터용 5자리 코드 (예: "11440")
-        full_name: 대표 법정동명 (예: "서울특별시 마포구")
-        matches: 모든 매칭 결과 목록 (10자리 원본 코드 + 이름)
-        error/message: 매칭 실패 시
+        region_code: 5-digit code for the API parameter (e.g. "11440")
+        full_name: Representative legal district name (e.g. "서울특별시 마포구")
+        matches: List of all matching results (10-digit original code + name)
+        error/message: Present when no match is found
     """
     return search_region_code(query)
 
 
 # ---------------------------------------------------------------------------
-# 도구 2: 아파트 매매 실거래가 조회
+# Tool 2: apartment trade records
 # ---------------------------------------------------------------------------
 
 
 def _parse_trades(xml_text: str) -> tuple[list[dict[str, Any]], str | None]:
-    """XML 응답을 파싱해 거래 목록과 에러코드를 반환한다.
+    """Parse an XML response and return a trade list and error code.
 
     Parameters:
-        xml_text: 국토교통부 API 원본 XML 문자열.
+        xml_text: Raw XML string from the MOLIT API.
 
     Returns:
-        (items, error_code): 정상이면 items에 거래 목록, error_code는 None.
-        오류이면 items는 빈 리스트, error_code에 코드 문자열.
+        (items, error_code): On success, items contains the trade list and error_code is None.
+        On error, items is an empty list and error_code holds the code string.
     """
     root = xml_fromstring(xml_text)
     result_code = root.findtext(".//resultCode") or ""
@@ -83,7 +83,7 @@ def _parse_trades(xml_text: str) -> tuple[list[dict[str, Any]], str | None]:
         def txt(tag: str) -> str:
             return (item.findtext(tag) or "").strip()
 
-        # 계약 해제 건 제외
+        # Skip cancelled deals
         if txt("cdealType") == "O":
             continue
 
@@ -130,10 +130,10 @@ def _parse_trades(xml_text: str) -> tuple[list[dict[str, Any]], str | None]:
 
 
 def _build_summary(items: list[dict[str, Any]]) -> dict[str, Any]:
-    """거래 목록에서 통계 요약을 계산한다.
+    """Compute summary statistics from a trade list.
 
     Parameters:
-        items: _parse_trades 에서 반환한 거래 목록.
+        items: Trade list returned by _parse_trades.
 
     Returns:
         median_price_10k, min_price_10k, max_price_10k, sample_count.
@@ -156,11 +156,11 @@ def _build_summary(items: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 _ERROR_MESSAGES: dict[str, str] = {
-    "03": "해당 지역·기간의 거래 내역이 없습니다.",
-    "10": "API 요청 파라미터가 잘못되었습니다.",
-    "22": "일일 API 요청 한도를 초과했습니다.",
-    "30": "등록되지 않은 API 키입니다.",
-    "31": "API 키 사용 기간이 만료되었습니다.",
+    "03": "No trade records found for the specified region and period.",
+    "10": "Invalid API request parameters.",
+    "22": "Daily API request limit exceeded.",
+    "30": "Unregistered API key.",
+    "31": "API key has expired.",
 }
 
 
@@ -170,39 +170,40 @@ async def get_apartment_trades(
     year_month: str,
     num_of_rows: int = 100,
 ) -> dict[str, Any]:
-    """특정 지역과 연월의 아파트 매매 실거래가 목록과 통계 요약을 반환한다.
+    """Return apartment trade records and summary statistics for a region and month.
 
-    소득×시간 시나리오에서 매수 가능 예산을 판단할 때 사용한다.
-    summary.median_price_10k를 기준 시세로 활용하고,
-    min/max_price_10k로 가격 범위를 제시한다.
+    Use summary.median_price_10k as the reference price and
+    min/max_price_10k to present the price range.
 
-    region_code는 반드시 get_region_code 도구로 먼저 조회해야 한다.
+    region_code must be obtained first via the get_region_code tool.
 
-    조회 전략:
-    - 시세 분석 시 현재 연월 기준 직전 6개월치(연속된 6개 연월)를 각각 호출해 추세를 파악한다.
-    - 계절성·연간 변동을 확인할 때는 동월 3년치(예: 202412, 202312, 202212)도 조회한다.
-    - 현재달 데이터는 집계 미완료로 건수가 적을 수 있으므로 해석에 유의한다.
+    Query strategy:
+    - For price trend analysis, call this tool for each of the 6 consecutive months
+      preceding the current month.
+    - To check seasonality or year-over-year changes, also query the same month across
+      3 years (e.g. 202412, 202312, 202212).
+    - The current month's data may have fewer records due to incomplete aggregation.
 
     Args:
-        region_code: 법정동코드 5자리 (get_region_code 반환값).
-        year_month: 조회 연월 (YYYYMM, 예: "202501").
-        num_of_rows: 최대 반환 건수, 기본 100.
+        region_code: 5-digit legal district code (returned by get_region_code).
+        year_month: Target year-month in YYYYMM format (e.g. "202501").
+        num_of_rows: Maximum number of records to return. Default 100.
 
     Returns:
-        total_count: API 전체 건수
-        items: 거래 목록 (apt_name, dong, area_sqm, floor,
+        total_count: Total record count from the API
+        items: Trade list (apt_name, dong, area_sqm, floor,
                price_10k, trade_date, build_year, deal_type)
         summary: median/min/max price_10k, sample_count
-        error/message: API 오류 또는 네트워크 오류 시
+        error/message: Present on API error or network failure
     """
     api_key = os.getenv("DATA_GO_KR_API_KEY", "")
     if not api_key:
         return {
             "error": "config_error",
-            "message": "환경변수 DATA_GO_KR_API_KEY가 설정되지 않았습니다.",
+            "message": "Environment variable DATA_GO_KR_API_KEY is not set.",
         }
 
-    # serviceKey는 URL에 직접 삽입 — httpx params 사용 시 이중 인코딩 발생
+    # serviceKey is embedded directly in the URL — using httpx params causes double-encoding
     encoded_key = urllib.parse.quote(api_key, safe="")
     url = (
         f"{_API_BASE}?serviceKey={encoded_key}"
@@ -215,22 +216,22 @@ async def get_apartment_trades(
             response = await client.get(url)
             response.raise_for_status()
     except httpx.TimeoutException:
-        return {"error": "network_error", "message": "API 서버 응답 시간 초과 (15초)"}
+        return {"error": "network_error", "message": "API server timed out (15s)"}
     except httpx.HTTPStatusError as exc:
         return {
             "error": "network_error",
-            "message": f"HTTP 오류: {exc.response.status_code}",
+            "message": f"HTTP error: {exc.response.status_code}",
         }
     except httpx.RequestError as exc:
-        return {"error": "network_error", "message": f"네트워크 오류: {exc}"}
+        return {"error": "network_error", "message": f"Network error: {exc}"}
 
     try:
         items, error_code = _parse_trades(response.text)
     except XmlParseError as exc:
-        return {"error": "parse_error", "message": f"XML 파싱 실패: {exc}"}
+        return {"error": "parse_error", "message": f"XML parse failed: {exc}"}
 
     if error_code is not None:
-        msg = _ERROR_MESSAGES.get(error_code, f"API 오류 코드: {error_code}")
+        msg = _ERROR_MESSAGES.get(error_code, f"API error code: {error_code}")
         return {"error": "api_error", "code": error_code, "message": msg}
 
     root = xml_fromstring(response.text)
