@@ -17,14 +17,14 @@ REGION_FILE = Path(__file__).parent.parent / "resources" / "region_codes.txt"
 class RegionMatch(TypedDict):
     """단일 매칭 결과."""
 
-    code: str   # 원본 10자리 코드
+    code: str  # 원본 10자리 코드
     name: str
 
 
 class RegionResult(TypedDict, total=False):
     """search_region_code 반환 타입."""
 
-    region_code: str   # API 파라미터용 5자리 코드
+    region_code: str  # API 파라미터용 5자리 코드
     full_name: str
     matches: list[RegionMatch]
     error: str
@@ -101,11 +101,7 @@ def search_region_code(query: str) -> RegionResult:
 
     # 쿼리 토큰 분리: "서울 마포구" → ["서울", "마포구"] 모두 포함하는 행 필터
     tokens = query.split()
-    matched = [
-        (code, name)
-        for code, name in rows
-        if all(tok in name for tok in tokens)
-    ]
+    matched = [(code, name) for code, name in rows if all(tok in name for tok in tokens)]
 
     if not matched:
         return {

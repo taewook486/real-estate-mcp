@@ -81,9 +81,7 @@ _XML_NO_DATA = """<?xml version="1.0" encoding="UTF-8"?>
   </body>
 </response>"""
 
-_API_URL = (
-    "https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade"
-)
+_API_URL = "https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade"
 
 
 # ---------------------------------------------------------------------------

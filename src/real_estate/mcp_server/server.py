@@ -11,23 +11,23 @@ Claude Desktop에 등록하여 자연어 대화로
 import os
 import statistics
 import urllib.parse
-import xml.etree.ElementTree as ET
 from pathlib import Path
+from typing import Any
 
 import httpx
+from defusedxml.ElementTree import ParseError as XmlParseError
+from defusedxml.ElementTree import fromstring as xml_fromstring
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 
 # 프로젝트 루트의 .env 로드 (파일 없어도 무시)
 load_dotenv(Path(__file__).parent.parent.parent.parent / ".env")
 
-from real_estate.data.region_code import search_region_code
+from real_estate.data.region_code import RegionResult, search_region_code  # noqa: E402
 
 mcp = FastMCP("real-estate")
 
-_API_BASE = (
-    "https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade"
-)
+_API_BASE = "https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade"
 
 
 # ---------------------------------------------------------------------------
@@ -36,7 +36,7 @@ _API_BASE = (
 
 
 @mcp.tool()
-def get_region_code(query: str) -> dict:
+def get_region_code(query: str) -> RegionResult:
     """사용자가 입력한 지역명을 국토교통부 API용 법정동코드(5자리)로 변환한다.
 
     get_apartment_trades 호출 전에 반드시 먼저 호출해야 한다.
@@ -62,7 +62,7 @@ def get_region_code(query: str) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def _parse_trades(xml_text: str) -> tuple[list[dict], str | None]:
+def _parse_trades(xml_text: str) -> tuple[list[dict[str, Any]], str | None]:
     """XML 응답을 파싱해 거래 목록과 에러코드를 반환한다.
 
     Parameters:
@@ -72,12 +72,12 @@ def _parse_trades(xml_text: str) -> tuple[list[dict], str | None]:
         (items, error_code): 정상이면 items에 거래 목록, error_code는 None.
         오류이면 items는 빈 리스트, error_code에 코드 문자열.
     """
-    root = ET.fromstring(xml_text)
+    root = xml_fromstring(xml_text)
     result_code = root.findtext(".//resultCode") or ""
     if result_code != "000":
         return [], result_code
 
-    items: list[dict] = []
+    items: list[dict[str, Any]] = []
     for item in root.findall(".//item"):
 
         def txt(tag: str) -> str:
@@ -129,7 +129,7 @@ def _parse_trades(xml_text: str) -> tuple[list[dict], str | None]:
     return items, None
 
 
-def _build_summary(items: list[dict]) -> dict:
+def _build_summary(items: list[dict[str, Any]]) -> dict[str, Any]:
     """거래 목록에서 통계 요약을 계산한다.
 
     Parameters:
@@ -169,7 +169,7 @@ async def get_apartment_trades(
     region_code: str,
     year_month: str,
     num_of_rows: int = 100,
-) -> dict:
+) -> dict[str, Any]:
     """특정 지역과 연월의 아파트 매매 실거래가 목록과 통계 요약을 반환한다.
 
     소득×시간 시나리오에서 매수 가능 예산을 판단할 때 사용한다.
@@ -226,16 +226,14 @@ async def get_apartment_trades(
 
     try:
         items, error_code = _parse_trades(response.text)
-    except ET.ParseError as exc:
+    except XmlParseError as exc:
         return {"error": "parse_error", "message": f"XML 파싱 실패: {exc}"}
 
     if error_code is not None:
-        msg = _ERROR_MESSAGES.get(
-            error_code, f"API 오류 코드: {error_code}"
-        )
+        msg = _ERROR_MESSAGES.get(error_code, f"API 오류 코드: {error_code}")
         return {"error": "api_error", "code": error_code, "message": msg}
 
-    root = ET.fromstring(response.text)
+    root = xml_fromstring(response.text)
     total_count_text = root.findtext(".//totalCount") or "0"
     try:
         total_count = int(total_count_text)
