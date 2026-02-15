@@ -14,6 +14,15 @@ Tools:
   - get_single_house_trades: detached/multi-unit house sale records + summary stats
   - get_single_house_rent: detached/multi-unit house lease/rent records + summary stats
   - get_commercial_trade: commercial/business building sale records + summary stats
+
+Korean housing-type keyword mapping (for tool selection):
+  - "아파트" → get_apartment_trades / get_apartment_rent
+  - "오피스텔" → get_officetel_trades / get_officetel_rent
+  - "빌라", "연립", "다세대", "연립다세대" → get_villa_trades
+    Note: "빌라" is a market term commonly referring to low-rise 공동주택 such as "다세대/연립".
+  - "단독", "다가구", "단독/다가구" → get_single_house_trades / get_single_house_rent
+  - "아파트외" (비아파트) → If subtype is not specified, prefer calling:
+    get_villa_trades + get_single_house_trades (and optionally officetel tools if "오피스텔" is included).
 """
 
 import os
@@ -678,6 +687,8 @@ async def get_apartment_trades(
 ) -> dict[str, Any]:
     """Return apartment sale records and summary statistics for a region and month.
 
+    Korean keywords: 아파트
+
     Use summary.median_price_10k as the reference price and
     min/max_price_10k to present the price range.
 
@@ -723,6 +734,8 @@ async def get_apartment_rent(
 ) -> dict[str, Any]:
     """Return apartment lease and monthly-rent records for a region and month.
 
+    Korean keywords: 아파트
+
     Use this alongside get_apartment_trades to compute the jeonse ratio:
       jeonse_ratio = summary.median_deposit_10k / trade summary.median_price_10k
     A ratio above 70% signals high gap-investment risk.
@@ -760,6 +773,8 @@ async def get_officetel_trades(
 ) -> dict[str, Any]:
     """Return officetel sale records and summary statistics for a region and month.
 
+    Korean keywords: 오피스텔
+
     Use to compare officetel prices against apartment prices in the same area.
     Officetel units are typically smaller and cheaper than apartments,
     suitable for 1-person households or as rental investment.
@@ -793,6 +808,8 @@ async def get_officetel_rent(
     num_of_rows: int = 100,
 ) -> dict[str, Any]:
     """Return officetel lease and monthly-rent records for a region and month.
+
+    Korean keywords: 오피스텔
 
     Use alongside get_officetel_trades to compute officetel jeonse ratio
     and evaluate rental investment yield.
@@ -829,6 +846,10 @@ async def get_villa_trades(
 ) -> dict[str, Any]:
     """Return row-house and multi-family (연립다세대) sale records for a region and month.
 
+    Korean keywords: 빌라, 연립, 다세대, 연립다세대, (아파트외 중) 저층 공동주택
+    Notes:
+      - "빌라" is not a legal housing type; it is commonly used to refer to "다세대/연립".
+
     Items include house_type ("연립" or "다세대") for distinguishing subtypes.
     Villas are typically cheaper than apartments and may suit budget-constrained buyers.
 
@@ -862,6 +883,8 @@ async def get_single_house_trades(
 ) -> dict[str, Any]:
     """Return detached and multi-unit house (단독/다가구) sale records for a region and month.
 
+    Korean keywords: 단독, 다가구, 단독/다가구, (아파트외 중) 단독/다가구
+
     No unit name is provided by the API. area_sqm is gross floor area (totalFloorAr).
     house_type distinguishes "단독" from "다가구".
 
@@ -894,6 +917,8 @@ async def get_single_house_rent(
     num_of_rows: int = 100,
 ) -> dict[str, Any]:
     """Return detached and multi-unit house (단독/다가구) lease/rent records for a region and month.
+
+    Korean keywords: 단독, 다가구, 단독/다가구, (아파트외 중) 단독/다가구
 
     No unit name is provided. area_sqm is gross floor area (totalFloorAr).
     house_type distinguishes "단독" from "다가구".
@@ -929,6 +954,8 @@ async def get_commercial_trade(
     num_of_rows: int = 100,
 ) -> dict[str, Any]:
     """Return commercial and business building (상업업무용) sale records for a region and month.
+
+    Korean keywords: 상업용, 업무용, 상가, 근린생활시설(매매), 상업업무용
 
     Response structure differs from residential tools:
     building_type, building_use, land_use, building_ar instead of unit_name/area_sqm.
