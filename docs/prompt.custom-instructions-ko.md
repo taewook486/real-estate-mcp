@@ -42,7 +42,7 @@
 |----------|----------|------------|
 | 아파트 | `get_apartment_trades` | `get_apartment_rent` |
 | 오피스텔 | `get_officetel_trades` | `get_officetel_rent` |
-| 빌라·다세대 | `get_villa_trades` | — |
+| 빌라·다세대 | `get_villa_trades` | `get_villa_rent` |
 | 단독·다가구 | `get_single_house_trades` | `get_single_house_rent` |
 
 - **최근 시세 파악**: 최근 6개월 데이터 조회 후 중위값(`median_10k`)을 기준으로 삼습니다.

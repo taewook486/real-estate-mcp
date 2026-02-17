@@ -1,13 +1,13 @@
 # Korea Real Estate OpenAPI for Claude
 
 MCP server exposing Korea's MOLIT (국토교통부) real estate transaction API to Claude Desktop.
-Provides 13+ tools for querying apartment, officetel, villa, single-house, and commercial trade/rent data, APT subscriptions, and public auctions.
+Provides 14+ tools for querying apartment, officetel, villa, single-house, and commercial trade/rent data, APT subscriptions, and public auctions.
 
 ## Supported tools
 
 - [x] 아파트 매매 / 전월세 (`get_apartment_trades`, `get_apartment_rent`)
 - [x] 오피스텔 매매 / 전월세 (`get_officetel_trades`, `get_officetel_rent`)
-- [x] 빌라·연립다세대 매매 (`get_villa_trades`)
+- [x] 빌라·연립다세대 매매 / 전월세 (`get_villa_trades`, `get_villa_rent`)
 - [x] 단독·다가구 매매 / 전월세 (`get_single_house_trades`, `get_single_house_rent`)
 - [x] 상업용 건물 매매 (`get_commercial_trade`)
 - [x] 아파트 청약 공고 / 결과 (`get_apt_subscription_info`, `get_apt_subscription_results`)
@@ -26,6 +26,7 @@ Provides 13+ tools for querying apartment, officetel, villa, single-house, and c
   - 국토교통부\_오피스텔 매매 신고 자료
   - 국토교통부\_오피스텔 전월세 자료
   - 국토교통부\_연립다세대 매매 실거래가 자료
+  - 국토교통부\_연립다세대 전월세 실거래가 자료
   - 국토교통부\_단독/다가구 매매 실거래가 자료
   - 국토교통부\_단독/다가구 전월세 자료
   - 국토교통부\_상업용건물(오피스) 매매 신고 자료

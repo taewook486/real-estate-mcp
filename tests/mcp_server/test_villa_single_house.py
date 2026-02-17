@@ -10,9 +10,11 @@ from httpx import Response
 from real_estate.mcp_server.server import (
     _parse_single_house_rent,
     _parse_single_house_trades,
+    _parse_villa_rent,
     _parse_villa_trades,
     get_single_house_rent,
     get_single_house_trades,
+    get_villa_rent,
     get_villa_trades,
 )
 
@@ -116,6 +118,33 @@ _XML_SINGLE_RENT_OK = """<?xml version="1.0" encoding="UTF-8"?>
   </body>
 </response>"""
 
+_XML_VILLA_RENT_OK = """<?xml version="1.0" encoding="UTF-8"?>
+<response>
+  <header>
+    <resultCode>000</resultCode>
+    <resultMsg>OK</resultMsg>
+  </header>
+  <body>
+    <items>
+      <item>
+        <mhouseNm>북악더테라스2단지</mhouseNm>
+        <umdNm>신영동</umdNm>
+        <houseType>연립</houseType>
+        <excluUseAr>84.99</excluUseAr>
+        <floor>-1</floor>
+        <deposit>70,000</deposit>
+        <monthlyRent>0</monthlyRent>
+        <contractType> </contractType>
+        <dealYear>2024</dealYear>
+        <dealMonth>7</dealMonth>
+        <dealDay>10</dealDay>
+        <buildYear>2019</buildYear>
+      </item>
+    </items>
+    <totalCount>1</totalCount>
+  </body>
+</response>"""
+
 _XML_NO_DATA = """<?xml version="1.0" encoding="UTF-8"?>
 <response>
   <header><resultCode>03</resultCode><resultMsg>No Data</resultMsg></header>
@@ -123,6 +152,7 @@ _XML_NO_DATA = """<?xml version="1.0" encoding="UTF-8"?>
 </response>"""
 
 _VILLA_URL = "https://apis.data.go.kr/1613000/RTMSDataSvcRHTrade/getRTMSDataSvcRHTrade"
+_VILLA_RENT_URL = "https://apis.data.go.kr/1613000/RTMSDataSvcRHRent/getRTMSDataSvcRHRent"
 _SINGLE_TRADE_URL = "https://apis.data.go.kr/1613000/RTMSDataSvcSHTrade/getRTMSDataSvcSHTrade"
 _SINGLE_RENT_URL = "https://apis.data.go.kr/1613000/RTMSDataSvcSHRent/getRTMSDataSvcSHRent"
 
@@ -198,6 +228,28 @@ class TestParseSingleHouseTrades:
         assert items[0]["house_type"] == "단독"
 
 
+class TestParseVillaRent:
+    """Unit tests for row-house/multi-family rent XML parsing."""
+
+    def test_normal_response_returns_item(self) -> None:
+        """Normal XML returns 1 rent item."""
+        items, error_code = _parse_villa_rent(_XML_VILLA_RENT_OK)
+        assert error_code is None
+        assert len(items) == 1
+
+    def test_house_type_and_unit_name(self) -> None:
+        """house_type and unit_name are parsed correctly."""
+        items, _ = _parse_villa_rent(_XML_VILLA_RENT_OK)
+        assert items[0]["house_type"] == "연립"
+        assert items[0]["unit_name"] == "북악더테라스2단지"
+
+    def test_deposit_and_rent_parsed(self) -> None:
+        """deposit_10k and monthly_rent_10k are parsed correctly."""
+        items, _ = _parse_villa_rent(_XML_VILLA_RENT_OK)
+        assert items[0]["deposit_10k"] == 70000
+        assert items[0]["monthly_rent_10k"] == 0
+
+
 class TestParseSingleHouseRent:
     """Unit tests for detached/multi-unit house rent XML parsing."""
 
@@ -264,6 +316,18 @@ class TestVillaSingleHouseTools:
         assert "error" not in result
         assert len(result["items"]) == 1
         assert "deposit_10k" in result["items"][0]
+
+    @respx.mock
+    async def test_villa_rent_success(self) -> None:
+        """Villa rent tool returns items and summary on success."""
+        respx.get(_VILLA_RENT_URL).mock(return_value=Response(200, text=_XML_VILLA_RENT_OK))
+
+        result = await get_villa_rent("11440", "202501")
+
+        assert "error" not in result
+        assert len(result["items"]) == 1
+        assert result["items"][0]["house_type"] == "연립"
+        assert result["summary"]["median_deposit_10k"] == 70000
 
     @respx.mock
     async def test_villa_no_data_error(self) -> None:

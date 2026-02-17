@@ -11,6 +11,7 @@ Tools:
   - get_officetel_trades: officetel sale records + summary stats
   - get_officetel_rent: officetel lease/rent records + summary stats
   - get_villa_trades: row-house/multi-family sale records + summary stats
+  - get_villa_rent: row-house/multi-family lease/rent records + summary stats
   - get_single_house_trades: detached/multi-unit house sale records + summary stats
   - get_single_house_rent: detached/multi-unit house lease/rent records + summary stats
   - get_commercial_trade: commercial/business building sale records + summary stats
@@ -22,11 +23,11 @@ Tools:
 Korean housing-type keyword mapping (for tool selection):
   - "아파트" → get_apartment_trades / get_apartment_rent
   - "오피스텔" → get_officetel_trades / get_officetel_rent
-  - "빌라", "연립", "다세대", "연립다세대" → get_villa_trades
+  - "빌라", "연립", "다세대", "연립다세대" → get_villa_trades / get_villa_rent
     Note: "빌라" is a market term commonly referring to low-rise 공동주택 such as "다세대/연립".
   - "단독", "다가구", "단독/다가구" → get_single_house_trades / get_single_house_rent
   - "아파트외" (비아파트) → If subtype is not specified, prefer calling:
-    get_villa_trades + get_single_house_trades
+    get_villa_trades + get_villa_rent + get_single_house_trades + get_single_house_rent
     (and optionally officetel tools if "오피스텔" is included).
 
 Korean "subscription" keyword mapping (for tool selection):
@@ -74,6 +75,7 @@ _APT_RENT_URL = "https://apis.data.go.kr/1613000/RTMSDataSvcAptRent/getRTMSDataS
 _OFFI_TRADE_URL = "https://apis.data.go.kr/1613000/RTMSDataSvcOffiTrade/getRTMSDataSvcOffiTrade"
 _OFFI_RENT_URL = "https://apis.data.go.kr/1613000/RTMSDataSvcOffiRent/getRTMSDataSvcOffiRent"
 _VILLA_TRADE_URL = "https://apis.data.go.kr/1613000/RTMSDataSvcRHTrade/getRTMSDataSvcRHTrade"
+_VILLA_RENT_URL = "https://apis.data.go.kr/1613000/RTMSDataSvcRHRent/getRTMSDataSvcRHRent"
 _SINGLE_TRADE_URL = "https://apis.data.go.kr/1613000/RTMSDataSvcSHTrade/getRTMSDataSvcSHTrade"
 _SINGLE_RENT_URL = "https://apis.data.go.kr/1613000/RTMSDataSvcSHRent/getRTMSDataSvcSHRent"
 _COMMERCIAL_TRADE_URL = "https://apis.data.go.kr/1613000/RTMSDataSvcNrgTrade/getRTMSDataSvcNrgTrade"
@@ -693,6 +695,43 @@ def _parse_officetel_rent(xml_text: str) -> tuple[list[dict[str, Any]], str | No
     return items, None
 
 
+def _parse_villa_rent(xml_text: str) -> tuple[list[dict[str, Any]], str | None]:
+    """Parse row-house / multi-family (연립다세대) lease/rent XML response.
+
+    Includes house_type ("연립" or "다세대") to distinguish subtypes.
+
+    Returns:
+        (items, None) on success; ([], error_code) on API error.
+    """
+    root = xml_fromstring(xml_text)
+    result_code = root.findtext(".//resultCode") or ""
+    if result_code != "000":
+        return [], result_code
+
+    items: list[dict[str, Any]] = []
+    for item in root.findall(".//item"):
+        deposit = _parse_amount(_txt(item, "deposit"))
+        if deposit is None:
+            continue
+        monthly_rent_raw = _txt(item, "monthlyRent")
+        monthly_rent = _parse_amount(monthly_rent_raw) if monthly_rent_raw else 0
+        items.append(
+            {
+                "unit_name": _txt(item, "mhouseNm"),
+                "dong": _txt(item, "umdNm"),
+                "house_type": _txt(item, "houseType"),
+                "area_sqm": _parse_float(_txt(item, "excluUseAr")),
+                "floor": _parse_int(_txt(item, "floor")),
+                "deposit_10k": deposit,
+                "monthly_rent_10k": monthly_rent or 0,
+                "contract_type": _txt(item, "contractType"),
+                "trade_date": _make_date(item),
+                "build_year": _parse_int(_txt(item, "buildYear")),
+            }
+        )
+    return items, None
+
+
 def _parse_single_house_rent(xml_text: str) -> tuple[list[dict[str, Any]], str | None]:
     """Parse detached / multi-unit house lease/rent XML response.
 
@@ -1026,7 +1065,45 @@ async def get_villa_trades(
 
 
 # ---------------------------------------------------------------------------
-# Tool 7: detached / multi-unit house (단독/다가구) sale records
+# Tool 7: row-house / multi-family (연립다세대) lease / rent records
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool()
+async def get_villa_rent(
+    region_code: str,
+    year_month: str,
+    num_of_rows: int = 100,
+) -> dict[str, Any]:
+    """Return row-house and multi-family (연립다세대) lease/rent records for a region and month.
+
+    Korean keywords: 빌라, 연립, 다세대, 연립다세대, (아파트외 중) 저층 공동주택
+
+    Use alongside get_villa_trades to compute villa jeonse ratio
+    and evaluate rental investment yield.
+
+    Args:
+        region_code: 5-digit legal district code (returned by get_region_code).
+        year_month: Target year-month in YYYYMM format (e.g. "202501").
+            Call get_current_year_month if not specified by the user.
+        num_of_rows: Maximum number of records to return. Default 100.
+
+    Returns:
+        total_count: Total record count from the API
+        items: Rent list (unit_name, dong, house_type, area_sqm, floor,
+               deposit_10k, monthly_rent_10k, contract_type,
+               trade_date, build_year)
+        summary: median/min/max deposit_10k, monthly_rent_avg_10k,
+                 jeonse_ratio_pct (null), sample_count
+        error/message: Present on API error or network failure
+    """
+    return await _run_rent_tool(
+        _VILLA_RENT_URL, _parse_villa_rent, region_code, year_month, num_of_rows
+    )
+
+
+# ---------------------------------------------------------------------------
+# Tool 8: detached / multi-unit house (단독/다가구) sale records
 # ---------------------------------------------------------------------------
 
 
@@ -1062,7 +1139,7 @@ async def get_single_house_trades(
 
 
 # ---------------------------------------------------------------------------
-# Tool 8: detached / multi-unit house lease / rent records
+# Tool 9: detached / multi-unit house lease / rent records
 # ---------------------------------------------------------------------------
 
 
@@ -1100,7 +1177,7 @@ async def get_single_house_rent(
 
 
 # ---------------------------------------------------------------------------
-# Tool 9: commercial / business building (상업업무용) sale records
+# Tool 10: commercial / business building (상업업무용) sale records
 # ---------------------------------------------------------------------------
 
 

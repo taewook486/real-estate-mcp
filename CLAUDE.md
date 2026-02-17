@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-MCP server exposing Korea's MOLIT (국토교통부) real estate transaction API to Claude Desktop. The server wraps XML endpoints from `apis.data.go.kr`, `api.odcloud.kr`, and `openapi.onbid.co.kr`, providing 13+ tools for querying apartment, officetel, villa, single-house, commercial trade/rent data, APT subscription info, and public auction (공매) bid results.
+MCP server exposing Korea's MOLIT (국토교통부) real estate transaction API to Claude Desktop. The server wraps XML endpoints from `apis.data.go.kr`, `api.odcloud.kr`, and `openapi.onbid.co.kr`, providing 14+ tools for querying apartment, officetel, villa, single-house, commercial trade/rent data, APT subscription info, and public auction (공매) bid results.
 
 Requires `DATA_GO_KR_API_KEY` from [공공데이터포털](https://www.data.go.kr) in a `.env` file at the project root.
 
@@ -65,6 +65,7 @@ These tools use the same `_run_trade_tool` / `_run_rent_tool` pattern but hit di
 **Key design constraints:**
 - Prices are in 만원 (10,000 KRW) units, field suffix `_10k`
 - `jeonse_ratio_pct` is always `null` from rent tools; callers compute it from trade and rent medians
+- Villa/row-house rent is available via `get_villa_rent` (`RTMSDataSvcRHRent`)
 - Commercial trade parser uses different field names (`building_type`, `building_use`, `building_ar`) vs residential tools (`unit_name`, `area_sqm`)
 
 ## Testing Conventions
