@@ -13,8 +13,12 @@ from real_estate.common_utils.docx_parser import extract_dir_to_txt
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Convert .docx files under a directory into .txt files.")
-    parser.add_argument("input_dir", type=Path, help="Directory to scan (recursively) for .docx files.")
+    parser = argparse.ArgumentParser(
+        description="Convert .docx files under a directory into .txt files."
+    )
+    parser.add_argument(
+        "input_dir", type=Path, help="Directory to scan (recursively) for .docx files."
+    )
     parser.add_argument(
         "--output-dir",
         type=Path,
