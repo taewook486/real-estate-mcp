@@ -60,18 +60,17 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
-## 5. Test Against Real Code, Not Substitutes
+## 5. Use the Real Interface, Not a Shortcut
 
-**Call the actual code. Don't simulate what it does.**
+**Go through the official entry point. Same result via a different path is not equivalent.**
 
-When testing:
-- Test by directly invoking the code under test — the real function, the real API call, the real tool.
-- Never substitute a part of the code with a mock or stub unless explicitly agreed with the user.
-- Mocks and stubs hide real bugs: network errors, parsing failures, schema mismatches, auth issues all disappear behind fake responses.
+When managing dependencies:
+- Add packages with `uv add <package>` — never edit `pyproject.toml` or `uv.lock` directly.
+- Direct file edits bypass uv's dependency resolution and can silently break lock file integrity.
 
-When mocking is necessary (e.g., paid APIs, irreversible side effects):
-- Propose it to the user first. Explain what will NOT be tested as a result.
-- Limit the mock to the minimum surface — never mock the code being tested itself.
-- Document clearly: "This test does not cover X because Y is mocked."
+When running or testing scripts:
+- Invoke the actual script file: `uv run python path/to/script.py` or the registered CLI entry point.
+- Never inline the script's source as a string argument to `python -c "..."` or equivalent.
+- Inlining skips the real file path, import chain, and entry point — what passes may still be broken in production.
 
-The rule: If your test never executes the real code path end-to-end, it is not a test — it is a hypothesis.
+The rule: If the execution path differs from how the code runs in production, the verification is incomplete.
