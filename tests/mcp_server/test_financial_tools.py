@@ -1,6 +1,6 @@
 """Unit tests for financial calculation MCP tools."""
 
-import pytest
+from math import isclose
 
 from real_estate.mcp_server.tools.finance import (
     calculate_compound_growth,
@@ -14,7 +14,7 @@ class TestCalculateLoanPayment:
 
     def test_normal_case(self) -> None:
         result = calculate_loan_payment(principal_10k=30000, annual_rate_pct=3.5, years=30)
-        assert result["monthly_payment_10k"] == pytest.approx(134.67, abs=0.1)
+        assert isclose(result["monthly_payment_10k"], 134.67, abs_tol=0.1)
 
     def test_zero_interest(self) -> None:
         principal_10k = 24000
@@ -69,7 +69,7 @@ class TestCalculateCompoundGrowth:
             annual_rate_pct=annual_rate_pct,
             years=years,
         )
-        assert result["final_value_10k"] == pytest.approx(expected, abs=0.01)
+        assert isclose(result["final_value_10k"], expected, abs_tol=0.01)
 
     def test_validation_years_zero(self) -> None:
         result = calculate_compound_growth(
@@ -90,7 +90,7 @@ class TestCalculateMonthlyCashflow:
             monthly_loan_payment_10k=134.67,
             monthly_living_cost_10k=200,
         )
-        assert result["monthly_cashflow_10k"] == pytest.approx(165.33, abs=0.01)
+        assert isclose(result["monthly_cashflow_10k"], 165.33, abs_tol=0.01)
 
     def test_auto_living_cost(self) -> None:
         result = calculate_monthly_cashflow(
