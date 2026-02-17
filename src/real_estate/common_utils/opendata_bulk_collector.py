@@ -1,6 +1,6 @@
-"""Bulk collector for monthly apartment rent open-data snapshots.
+"""Bulk collector for monthly rent open-data snapshots.
 
-This module calls `real_estate.mcp_server.server.get_apartment_rent` month by month
+This module calls rent tools in `real_estate.mcp_server.server` month by month
 and stores raw JSON payloads under an output directory.
 """
 
@@ -13,7 +13,12 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from real_estate.mcp_server.server import get_apartment_rent
+from real_estate.mcp_server.server import get_apartment_rent, get_villa_rent
+
+_TOOL_BY_PROPERTY_TYPE = {
+    "apartment": get_apartment_rent,
+    "villa": get_villa_rent,
+}
 
 
 @dataclass
@@ -51,12 +56,14 @@ def _iter_year_months(start_yyyymm: str, end_yyyymm: str) -> list[str]:
 
 async def _collect_one(
     *,
+    property_type: str,
     region_code: str,
     year_month: str,
     num_of_rows: int,
     output_dir: Path,
 ) -> MonthResult:
-    result = await get_apartment_rent(
+    tool = _TOOL_BY_PROPERTY_TYPE[property_type]
+    result = await tool(
         region_code=region_code,
         year_month=year_month,
         num_of_rows=num_of_rows,
@@ -100,12 +107,13 @@ async def _collect_one(
 
 async def _run(args: argparse.Namespace) -> int:
     year_months = _iter_year_months(args.start, args.end)
-    output_dir = Path(args.output_root) / "apartment_rent" / args.region_code
+    output_dir = Path(args.output_root) / f"{args.property_type}_rent" / args.region_code
     output_dir.mkdir(parents=True, exist_ok=True)
 
     results: list[MonthResult] = []
     for year_month in year_months:
         result = await _collect_one(
+            property_type=args.property_type,
             region_code=args.region_code,
             year_month=year_month,
             num_of_rows=args.num_of_rows,
@@ -120,6 +128,7 @@ async def _run(args: argparse.Namespace) -> int:
 
     index_path = output_dir / "index.json"
     index_payload = {
+        "property_type": args.property_type,
         "region_code": args.region_code,
         "start": args.start,
         "end": args.end,
@@ -140,7 +149,13 @@ async def _run(args: argparse.Namespace) -> int:
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Collect apartment rent data by month.")
+    parser = argparse.ArgumentParser(description="Collect monthly rent data by property type.")
+    parser.add_argument(
+        "--property-type",
+        choices=sorted(_TOOL_BY_PROPERTY_TYPE.keys()),
+        default="apartment",
+        help="Property type to collect (default: apartment)",
+    )
     parser.add_argument("--region-code", default="11740", help="5-digit LAWD_CD (default: 11740)")
     parser.add_argument("--start", default="202207", help="Start month YYYYMM (default: 202207)")
     parser.add_argument("--end", default="202601", help="End month YYYYMM (default: 202601)")
