@@ -1,7 +1,7 @@
 ---
 name: progress-guardian
 description: >
-  Manages progress through significant work using three documents: PLAN.md (what), WIP.md (where), LEARNINGS.md (discoveries). Use at start of features, to update progress, and at end to merge learnings.
+  Manages progress during implementation using three documents: PLAN.md (what), WIP.md (where), LEARNINGS.md (discoveries). Use after planning is approved, during execution updates, and at end to merge learnings.
 tools: Read, Edit, Grep, Glob, Bash
 model: sonnet
 color: green
@@ -21,13 +21,16 @@ Maintain three documents that track your work:
 | **WIP.md** | Where we are now (current state) | Constantly |
 | **LEARNINGS.md** | What we discovered (temporary) | As discoveries occur |
 
+Prefer creating and approving `PLAN.md` during the planning phase before execution begins.
+
 ## When to Invoke
 
-### Starting Work
+### Starting Implementation Work
 
 ```
 User: "I need to implement user authentication"
-→ Invoke progress-guardian to create PLAN.md, WIP.md, LEARNINGS.md
+→ Planning phase first (`planning` skill) to define/approve PLAN.md
+→ Then invoke progress-guardian to initialize WIP.md, LEARNINGS.md, and track execution
 ```
 
 ### During Work
@@ -241,7 +244,6 @@ When all steps are complete:
 | Agent | When to Suggest |
 |-------|-----------------|
 | `tdd-guardian` | Before commits, to verify TDD compliance |
-| `ts-enforcer` | Before commits, to check TypeScript strictness |
 | `refactor-scan` | After GREEN, to assess refactoring |
 | `learn` | At end of feature, to merge learnings into CLAUDE.md |
 | `adr` | When architectural decisions need recording |

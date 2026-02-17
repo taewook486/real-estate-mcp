@@ -9,6 +9,12 @@ description: Planning work in small, known-good increments. Use when starting si
 
 **Document Management**: Use the `progress-guardian` agent to create and maintain planning documents (PLAN.md, WIP.md, LEARNINGS.md).
 
+## Usage Boundary
+
+- Use this `planning` skill at planning time (before implementation starts).
+- During implementation execution, use `progress-guardian` to track WIP/LEARNINGS and step-by-step status.
+- During RED/GREEN/REFACTOR test loops, use `tdd-guardian`.
+
 ## Three-Document Model
 
 For significant work, maintain three documents:

@@ -10,12 +10,12 @@ This directory contains specifications for specialized Claude Code agents that w
 **Purpose**: Ensures strict Test-Driven Development compliance throughout the coding process.
 
 **Use proactively when**:
-- Planning to implement a new feature
-- About to write any production code
+- Starting a RED test for a new behavior
+- Entering GREEN/REFACTOR after a test run
 
 **Use reactively when**:
-- Code has been written (verify TDD was followed)
-- Tests are green (assess refactoring opportunities)
+- Code has been written and you need TDD compliance verification
+- Tests are green and you need explicit REFACTOR assessment
 
 **Core responsibility**: Enforce RED-GREEN-REFACTOR cycle, verify tests written first.
 
@@ -37,8 +37,6 @@ This directory contains specifications for specialized Claude Code agents that w
 **Core responsibility**: Identify valuable refactoring (only refactor if adds value), distinguish knowledge duplication from structural similarity.
 
 ---
-
-### Code Review Agents
 
 ### Documentation & Knowledge Agents
 
@@ -130,9 +128,9 @@ This directory contains specifications for specialized Claude Code agents that w
 **Purpose**: Manages progress through significant work using a three-document system.
 
 **Use proactively when**:
-- Starting significant multi-step work
-- Beginning feature requiring multiple PRs
-- Starting complex refactoring or investigation
+- Plan is already approved and implementation is starting
+- Beginning feature execution requiring multiple commits/PRs
+- Starting complex refactoring or investigation execution
 
 **Use reactively when**:
 - Completing a step (update WIP.md)
@@ -142,7 +140,7 @@ This directory contains specifications for specialized Claude Code agents that w
 - Feature complete (merge learnings, delete docs)
 
 **Core responsibility**:
-- Create and maintain three documents: **PLAN.md**, **WIP.md**, **LEARNINGS.md**
+- Maintain execution state documents: **WIP.md**, **LEARNINGS.md** (and keep **PLAN.md** synchronized)
 - Enforce small increments, TDD, commit approval
 - Never modify PLAN.md without explicit user approval
 - Capture learnings as they occur
@@ -188,12 +186,14 @@ progress-guardian (orchestrates)
 
 ### Typical Workflow
 
-1. **Start significant work**
-   - Load `planning` skill for principles
-   - Invoke `progress-guardian`: Creates PLAN.md, WIP.md, LEARNINGS.md
-   - Get approval for PLAN.md
+1. **Planning phase**
+   - Load `planning` skill to define scope, increments, and acceptance criteria
+   - Create and approve PLAN.md
 
-1. **For each step in plan**
+1. **Execution phase**
+   - Invoke `progress-guardian`: Initialize/update WIP.md and LEARNINGS.md from approved PLAN.md
+
+1. **For each step in plan (development + test loop)**
    - RED: Write failing test (TDD non-negotiable)
    - GREEN: Minimal code to pass
    - REFACTOR: Invoke `refactor-scan` to assess improvements
@@ -210,7 +210,7 @@ progress-guardian (orchestrates)
    - Invoke `adr` if decision warrants permanent record
 
 1. **Before commits**
-   - Invoke `t   - In<|diff_marker|> PATCH Ace
+   - Invoke `tdd-guardian`: Verify TDD compliance
    - **Ask for commit approval**
 
 1. **End of session**
@@ -312,11 +312,11 @@ When creating a new agent specification:
 These agents work together to create a comprehensive development workflow:
 
 - **Analysis**: use-case-data-patterns maps use cases to implementation patterns
-- **Quality**: tdd-guardian + ts-enforcer ensure code quality
+- **Quality**: tdd-guardian ensures TDD quality during test-driven implementation
 - **Improvement**: refactor-scan optimizes code after tests pass
-- **Review**: pr-reviewer validates PRs before merge
 - **Knowledge**: learn + adr + docs-guardian preserve knowledge
-- **Progress**: progress-guardian manages incremental work with three-document model
+- **Planning**: `planning` skill is used at planning time
+- **Progress**: progress-guardian manages execution progress during development
 
 **Key workflow principles** (see `planning` skill for details):
 - All work in small, known-good increments
