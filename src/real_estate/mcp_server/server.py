@@ -15,7 +15,8 @@ Tools:
   - get_single_house_rent: detached/multi-unit house lease/rent records + summary stats
   - get_commercial_trade: commercial/business building sale records + summary stats
   - get_apt_subscription_info: applyhome (청약홈) APT subscription notice metadata
-  - get_apt_subscription_results: applyhome (청약홈) subscription stats (requests, winners, rates, scores)
+  - get_apt_subscription_results: applyhome (청약홈) subscription stats
+    (requests, winners, rates, scores)
   - get_public_auction_items: onbid next-gen bid result list (공매 물건 입찰결과 목록)
 
 Korean housing-type keyword mapping (for tool selection):
@@ -25,7 +26,8 @@ Korean housing-type keyword mapping (for tool selection):
     Note: "빌라" is a market term commonly referring to low-rise 공동주택 such as "다세대/연립".
   - "단독", "다가구", "단독/다가구" → get_single_house_trades / get_single_house_rent
   - "아파트외" (비아파트) → If subtype is not specified, prefer calling:
-    get_villa_trades + get_single_house_trades (and optionally officetel tools if "오피스텔" is included).
+    get_villa_trades + get_single_house_trades
+    (and optionally officetel tools if "오피스텔" is included).
 
 Korean "subscription" keyword mapping (for tool selection):
   - "청약", "분양", "모집공고", "청약 일정", "당첨자 발표", "계약 일정"
@@ -258,7 +260,8 @@ def _check_odcloud_key() -> dict[str, Any] | None:
         return {
             "error": "config_error",
             "message": (
-                "Environment variable ODCLOUD_API_KEY (or ODCLOUD_SERVICE_KEY, or DATA_GO_KR_API_KEY) "
+                "Environment variable ODCLOUD_API_KEY "
+                "(or ODCLOUD_SERVICE_KEY, or DATA_GO_KR_API_KEY) "
                 "is not set."
             ),
         }
@@ -853,7 +856,8 @@ async def get_apartment_trades(
 
     Args:
         region_code: 5-digit legal district code (returned by get_region_code).
-        year_month: Target year-month in YYYYMM format (e.g. "202501"). Call get_current_year_month if not specified by the user.
+        year_month: Target year-month in YYYYMM format (e.g. "202501").
+            Call get_current_year_month if not specified by the user.
         num_of_rows: Maximum number of records to return. Default 100.
 
     Returns:
@@ -889,7 +893,8 @@ async def get_apartment_rent(
 
     Args:
         region_code: 5-digit legal district code (returned by get_region_code).
-        year_month: Target year-month in YYYYMM format (e.g. "202501"). Call get_current_year_month if not specified by the user.
+        year_month: Target year-month in YYYYMM format (e.g. "202501").
+            Call get_current_year_month if not specified by the user.
         num_of_rows: Maximum number of records to return. Default 100.
 
     Returns:
@@ -928,7 +933,8 @@ async def get_officetel_trades(
 
     Args:
         region_code: 5-digit legal district code (returned by get_region_code).
-        year_month: Target year-month in YYYYMM format (e.g. "202501"). Call get_current_year_month if not specified by the user.
+        year_month: Target year-month in YYYYMM format (e.g. "202501").
+            Call get_current_year_month if not specified by the user.
         num_of_rows: Maximum number of records to return. Default 100.
 
     Returns:
@@ -963,7 +969,8 @@ async def get_officetel_rent(
 
     Args:
         region_code: 5-digit legal district code (returned by get_region_code).
-        year_month: Target year-month in YYYYMM format (e.g. "202501"). Call get_current_year_month if not specified by the user.
+        year_month: Target year-month in YYYYMM format (e.g. "202501").
+            Call get_current_year_month if not specified by the user.
         num_of_rows: Maximum number of records to return. Default 100.
 
     Returns:
@@ -1002,7 +1009,8 @@ async def get_villa_trades(
 
     Args:
         region_code: 5-digit legal district code (returned by get_region_code).
-        year_month: Target year-month in YYYYMM format (e.g. "202501"). Call get_current_year_month if not specified by the user.
+        year_month: Target year-month in YYYYMM format (e.g. "202501").
+            Call get_current_year_month if not specified by the user.
         num_of_rows: Maximum number of records to return. Default 100.
 
     Returns:
@@ -1037,7 +1045,8 @@ async def get_single_house_trades(
 
     Args:
         region_code: 5-digit legal district code (returned by get_region_code).
-        year_month: Target year-month in YYYYMM format (e.g. "202501"). Call get_current_year_month if not specified by the user.
+        year_month: Target year-month in YYYYMM format (e.g. "202501").
+            Call get_current_year_month if not specified by the user.
         num_of_rows: Maximum number of records to return. Default 100.
 
     Returns:
@@ -1072,7 +1081,8 @@ async def get_single_house_rent(
 
     Args:
         region_code: 5-digit legal district code (returned by get_region_code).
-        year_month: Target year-month in YYYYMM format (e.g. "202501"). Call get_current_year_month if not specified by the user.
+        year_month: Target year-month in YYYYMM format (e.g. "202501").
+            Call get_current_year_month if not specified by the user.
         num_of_rows: Maximum number of records to return. Default 100.
 
     Returns:
@@ -1112,7 +1122,8 @@ async def get_commercial_trade(
 
     Args:
         region_code: 5-digit legal district code (returned by get_region_code).
-        year_month: Target year-month in YYYYMM format (e.g. "202501"). Call get_current_year_month if not specified by the user.
+        year_month: Target year-month in YYYYMM format (e.g. "202501").
+            Call get_current_year_month if not specified by the user.
         num_of_rows: Maximum number of records to return. Default 100.
 
     Returns:
@@ -1320,7 +1331,9 @@ async def get_apt_subscription_results(
 # ---------------------------------------------------------------------------
 
 
-def _onbid_extract_items(payload: dict[str, Any]) -> tuple[str, dict[str, Any], list[dict[str, Any]]]:
+def _onbid_extract_items(
+    payload: dict[str, Any],
+) -> tuple[str, dict[str, Any], list[dict[str, Any]]]:
     """Extract (result_code, body, items) from an Onbid JSON response."""
     if "response" in payload and isinstance(payload["response"], dict):
         response = payload["response"]
@@ -1781,9 +1794,7 @@ async def get_onbid_thing_info_list(
     assert xml_text is not None
 
     try:
-        items, total_count, error_code, error_message = _parse_onbid_thing_info_list_xml(
-            xml_text
-        )
+        items, total_count, error_code, error_message = _parse_onbid_thing_info_list_xml(xml_text)
     except XmlParseError as exc:
         return {"error": "parse_error", "message": f"XML parse failed: {exc}"}
 

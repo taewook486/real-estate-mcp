@@ -15,9 +15,7 @@ from real_estate.mcp_server.server import (
     get_public_auction_item_detail,
 )
 
-_ONBID_DETAIL_URL = (
-    "http://apis.data.go.kr/B010003/OnbidCltrBidRsltDtlSrvc/getCltrBidRsltDtl"
-)
+_ONBID_DETAIL_URL = "http://apis.data.go.kr/B010003/OnbidCltrBidRsltDtlSrvc/getCltrBidRsltDtl"
 _ONBID_THING_LIST_URL = (
     "http://openapi.onbid.co.kr/openapi/services/ThingInfoInquireSvc/getUnifyUsageCltr"
 )

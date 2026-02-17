@@ -25,7 +25,9 @@ _MIDDLE_URL = (
 _ADDR1_URL = "http://openapi.onbid.co.kr/openapi/services/OnbidCodeInfoInquireSvc/getOnbidAddr1Info"
 _ADDR2_URL = "http://openapi.onbid.co.kr/openapi/services/OnbidCodeInfoInquireSvc/getOnbidAddr2Info"
 _ADDR3_URL = "http://openapi.onbid.co.kr/openapi/services/OnbidCodeInfoInquireSvc/getOnbidAddr3Info"
-_DTL_ADDR_URL = "http://openapi.onbid.co.kr/openapi/services/OnbidCodeInfoInquireSvc/getOnbidDtlAddrInfo"
+_DTL_ADDR_URL = (
+    "http://openapi.onbid.co.kr/openapi/services/OnbidCodeInfoInquireSvc/getOnbidDtlAddrInfo"
+)
 _BOTTOM_URL = (
     "http://openapi.onbid.co.kr/openapi/services/OnbidCodeInfoInquireSvc/getOnbidBottomCodeInfo"
 )
@@ -151,9 +153,7 @@ class TestParseOnbidCodeInfoXml:
     """Unit tests for parsing code lookup XML."""
 
     def test_parse_ok_returns_items(self) -> None:
-        items, total_count, error_code, error_message = _parse_onbid_code_info_xml(
-            _XML_OK_TOP
-        )
+        items, total_count, error_code, error_message = _parse_onbid_code_info_xml(_XML_OK_TOP)
         assert error_code is None
         assert error_message is None
         assert total_count == 1

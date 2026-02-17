@@ -12,10 +12,7 @@ from real_estate.mcp_server.server import (
     get_apt_subscription_results,
 )
 
-_INFO_URL = (
-    "https://api.odcloud.kr/api/15101046/v1/"
-    "uddi:14a46595-03dd-47d3-a418-d64e52820598"
-)
+_INFO_URL = "https://api.odcloud.kr/api/15101046/v1/uddi:14a46595-03dd-47d3-a418-d64e52820598"
 _STAT_BASE_URL = "https://api.odcloud.kr/api/ApplyhomeStatSvc/v1"
 
 
@@ -47,9 +44,7 @@ class TestGetAptSubscriptionInfo:
         assert result["page"] == 1
         assert result["per_page"] == 100
 
-    async def test_missing_key_returns_config_error(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    async def test_missing_key_returns_config_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("ODCLOUD_API_KEY", raising=False)
         monkeypatch.delenv("ODCLOUD_SERVICE_KEY", raising=False)
         monkeypatch.delenv("DATA_GO_KR_API_KEY", raising=False)

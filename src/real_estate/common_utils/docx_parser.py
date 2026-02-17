@@ -56,7 +56,9 @@ def extract_text(docx_path: str | Path, *, keep_empty_paragraphs: bool = False) 
 
             # Basic guardrail; this should be plenty for typical docs.
             if info.file_size > 25 * 1024 * 1024:
-                raise ValueError(f"word/document.xml too large ({info.file_size} bytes): {docx_path}")
+                raise ValueError(
+                    f"word/document.xml too large ({info.file_size} bytes): {docx_path}"
+                )
 
             xml_bytes = zf.read(info)
     except BadZipFile as e:
@@ -142,4 +144,3 @@ def _paragraph_text(p_elem: DefusedET.Element) -> str:
             continue
 
     return "".join(parts).strip()
-

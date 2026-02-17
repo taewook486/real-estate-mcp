@@ -9,9 +9,7 @@ from httpx import Response
 
 from real_estate.mcp_server.server import get_public_auction_items
 
-_ONBID_URL = (
-    "http://apis.data.go.kr/B010003/OnbidCltrBidRsltListSrvc/getCltrBidRsltList"
-)
+_ONBID_URL = "http://apis.data.go.kr/B010003/OnbidCltrBidRsltListSrvc/getCltrBidRsltList"
 
 
 class TestGetPublicAuctionItems:
@@ -64,9 +62,7 @@ class TestGetPublicAuctionItems:
         assert result["error"] == "api_error"
         assert result["code"] == "99"
 
-    async def test_missing_key_returns_config_error(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    async def test_missing_key_returns_config_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("ONBID_API_KEY", raising=False)
         monkeypatch.delenv("DATA_GO_KR_API_KEY", raising=False)
 

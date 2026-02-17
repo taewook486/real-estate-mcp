@@ -54,4 +54,3 @@ def test_extract_dir_to_txt_writes_side_by_side(tmp_path: Path) -> None:
     assert (input_dir / "a.txt") in out_paths
     assert (input_dir / "nested" / "b.txt") in out_paths
     assert (input_dir / "a.txt").read_text(encoding="utf-8") == "OK"
-
