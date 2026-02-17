@@ -9,9 +9,9 @@ Update task state in worklog files. Requires explicit arguments.
 
 ## Worklog Files
 
-- `gitignore/worklog.todo.md` — backlog
-- `gitignore/worklog.doing.md` — in progress
-- `gitignore/worklog.done.md` — completed (grouped by date, append-only)
+- `localdocs/worklog.todo.md` — backlog
+- `localdocs/worklog.doing.md` — in progress
+- `localdocs/worklog.done.md` — completed (grouped by date, append-only)
 
 ## Arguments
 

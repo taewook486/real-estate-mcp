@@ -67,7 +67,7 @@ text = extract_text("/path/to/file.hwp")
 1. Output is written under:
 
     ```text
-    gitignore/assets/data/apartment_rent/<region_code>/
+    localdocs/assets/data/apartment_rent/<region_code>/
     ```
 
     Includes one `<YYYYMM>.json` file per month and `index.json` summary.

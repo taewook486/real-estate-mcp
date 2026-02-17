@@ -1,5 +1,5 @@
 # Local files
-gitignore/
+localdocs/
 .arxiv/
 .coverage
 AGENTS.md

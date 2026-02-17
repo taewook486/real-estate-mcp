@@ -7,28 +7,35 @@ description: Planning work in small, known-good increments. Use when starting si
 
 **All work must be done in small, known-good increments.** Each increment leaves the codebase in a working state where all tests pass.
 
-**Document Management**: Use the `progress-guardian` agent to create and maintain planning documents (PLAN.md, WIP.md, LEARNINGS.md).
+**Document Management**:
+- Long-term plan: `localdocs/plan.<topic>.md`
+- Future (not yet planned): `localdocs/backlog.<topic>.md`
+- Execution logs: `worklog` skill (`localdocs/worklog.todo.md`, `localdocs/worklog.doing.md`, `localdocs/worklog.done.md`)
+- Learning notes: `localdocs/learn.<topic>.md`
 
 ## Usage Boundary
 
 - Use this `planning` skill at planning time (before implementation starts).
-- During implementation execution, use `progress-guardian` to track WIP/LEARNINGS and step-by-step status.
+- During implementation execution, use `progress-guardian` to track progress/learning snapshots and step-by-step status.
 - During RED/GREEN/REFACTOR test loops, use `tdd-guardian`.
 
-## Three-Document Model
+## Plan + Worklog + Learn Model
 
-For significant work, maintain three documents:
+For significant work, maintain one long-term plan, worklog files, and a learning note:
 
 | Document | Purpose | Lifecycle |
 |----------|---------|-----------|
-| **PLAN.md** | What we're doing | Created at start, changes need approval |
-| **WIP.md** | Where we are now | Updated constantly, always accurate |
-| **LEARNINGS.md** | What we discovered | Temporary, merged at end then deleted |
+| **`localdocs/backlog.<topic>.md`** | Future ideas before planning | Optional, persistent |
+| **`localdocs/plan.<topic>.md`** | What we're doing | Created at start, changes need approval |
+| **`localdocs/worklog.todo.md`** | Pending phase/session tasks | Persistent |
+| **`localdocs/worklog.doing.md`** | In-progress phase/session tasks | Persistent |
+| **`localdocs/worklog.done.md`** | Completed phase/session log | Persistent |
+| **`localdocs/learn.<topic>.md`** | Learning notes / gotchas / decisions | Temporary, merged then archived/removed |
 
 ### Document Relationships
 
 ```
-PLAN.md (static)          WIP.md (living)           LEARNINGS.md (temporary)
+`localdocs/plan.<topic>.md` (static)          `worklog.todo/doing/done` (execution log)           `localdocs/learn.<topic>.md` (learning notes)
 ┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
 │ Goal            │       │ Current step    │       │ Gotchas         │
 │ Acceptance      │  ──►  │ Status          │  ──►  │ Patterns        │
@@ -45,9 +52,9 @@ PLAN.md (static)          WIP.md (living)           LEARNINGS.md (temporary)
                     ┌─────────────┴─────────────┐
                     │                           │
                     ▼                           ▼
-              DELETE all              Merge LEARNINGS into:
-              three docs              - CLAUDE.md (gotchas, patterns)
-                                      - ADRs (architectural decisions)
+              Keep worklog logs        Merge architectural learnings into:
+                                       - CLAUDE.md (`learn`)
+                                       - ADRs (`adr`)
 ```
 
 ## What Makes a "Known-Good Increment"
@@ -111,9 +118,10 @@ After completing a step (RED-GREEN-REFACTOR):
 
 1. Verify all tests pass
 2. Verify static analysis passes
-3. Update WIP.md with progress
-4. Capture any learnings in LEARNINGS.md
-5. **STOP and ask**: "Ready to commit [description]. Approve?"
+3. Update `localdocs/worklog.doing.md` with progress
+4. Move task states with `worklog` skill (`todo` → `doing` → `done`)
+5. Capture knowledge learnings in `localdocs/learn.<topic>.md` when discovered
+6. **STOP and ask**: "Ready to commit [description]. Approve?"
 
 Only proceed with commit after explicit approval.
 
@@ -124,7 +132,7 @@ Only proceed with commit after explicit approval.
 - Prevents accidental commits of incomplete work
 - Creates natural checkpoint for discussion
 
-## PLAN.md Structure
+## `localdocs/plan.<topic>.md` Structure
 
 ```markdown
 # Plan: [Feature Name]
@@ -164,88 +172,52 @@ If the plan needs to change:
 
 Plans are not immutable, but changes must be explicit and approved.
 
-## WIP.md Structure
+## `worklog` Structure
 
-```markdown
-# WIP: [Feature Name]
+Use the `worklog` skill as the source of truth for:
+- `localdocs/worklog.todo.md`
+- `localdocs/worklog.doing.md`
+- `localdocs/worklog.done.md`
 
-## Current Step
+Do not maintain separate manual templates for these files in planning docs.
 
-Step N of M: [Description]
+### Progress Snapshot Must Always Be Accurate
 
-## Status
-
-🔴 RED - Writing failing test
-🟢 GREEN - Making test pass
-🔵 REFACTOR - Assessing improvements
-⏸️ WAITING - Awaiting commit approval
-
-## Completed
-
-- [x] Step 1: [Description]
-- [x] Step 2: [Description]
-- [ ] Step 3: [Description] ← current
-
-## Blockers
-
-[None / List current blockers]
-
-## Next Action
-
-[Specific next thing to do]
-```
-
-### WIP Must Always Be Accurate
-
-Update WIP.md:
+Update `localdocs/worklog.doing.md`:
 - When starting a new step
 - When status changes (RED → GREEN → REFACTOR)
 - When blockers appear or resolve
 - After each commit
 - At end of each session
 
-**If WIP.md doesn't reflect reality, update it immediately.**
+**If `localdocs/worklog.doing.md` doesn't reflect reality, update it immediately.**
 
-## LEARNINGS.md Structure
+## `localdocs/worklog.done.md`
+
+Append-only execution history grouped by date. Update via `worklog done ...`.
+
+### Capture Execution Logs As They Occur
+
+Don't wait until the end. When you discover something:
+
+1. Record task completion in `localdocs/worklog.done.md` via `worklog done ...`
+2. Continue with current work
+3. At end of feature, use this as execution history only
+
+## `localdocs/learn.<topic>.md` Structure
 
 ```markdown
 # Learnings: [Feature Name]
 
 ## Gotchas
+- [What happened and why]
 
-### [Title]
-- **Context**: When this occurs
-- **Issue**: What goes wrong
-- **Solution**: How to handle it
+## Patterns
+- [What worked and when to apply]
 
-## Patterns That Worked
-
-### [Title]
-- **What**: Description
-- **Why it works**: Rationale
-- **Example**: Brief code example
-
-## Decisions Made
-
-### [Title]
-- **Options considered**: What we evaluated
-- **Decision**: What we chose
-- **Rationale**: Why
-- **Trade-offs**: What we gained/lost
-
-## Edge Cases
-
-- [Edge case 1]: How we handled it
-- [Edge case 2]: How we handled it
+## Decisions
+- [Decision + rationale + trade-offs]
 ```
-
-### Capture Learnings As They Occur
-
-Don't wait until the end. When you discover something:
-
-1. Add it to LEARNINGS.md immediately
-2. Continue with current work
-3. At end of feature, learnings are ready to merge
 
 ## End of Feature
 
@@ -255,11 +227,11 @@ When all steps are complete:
 
 - All acceptance criteria met
 - All tests passing
-- All steps marked complete in WIP.md
+- All steps marked complete in `localdocs/worklog.doing.md`
 
-### 2. Merge Learnings
+### 2. Merge Learnings (if any)
 
-Review LEARNINGS.md and determine destination:
+Use `localdocs/learn.<topic>.md` as the source for knowledge merge (`learn`/`adr`):
 
 | Learning Type | Destination | Method |
 |---------------|-------------|--------|
@@ -268,12 +240,12 @@ Review LEARNINGS.md and determine destination:
 | Architectural decisions | ADR | Use `adr` agent |
 | Domain knowledge | Project docs | Direct update |
 
-### 3. Delete Documents
+### 3. Close Plan
 
 After learnings are merged:
 
 ```bash
-rm PLAN.md WIP.md LEARNINGS.md
+rm localdocs/plan.feature.md
 git add -A
 git commit -m "chore: complete [feature], remove planning docs"
 ```
@@ -295,39 +267,42 @@ git commit -m "chore: complete [feature], remove planning docs"
 ❌ **Writing code before tests**
 - RED comes first, always
 
-❌ **Letting WIP.md become stale**
+❌ **Letting `localdocs/worklog.doing.md` become stale**
 - Update immediately when reality changes
 
-❌ **Waiting until end to capture learnings**
-- Add to LEARNINGS.md as discoveries occur
+❌ **Confusing worklog and learning docs**
+- Worklog tracks execution; `learn`/`adr` capture lasting knowledge
+
+❌ **Putting future ideas directly into plan**
+- If not in current approved scope, record first in `localdocs/backlog.<topic>.md`
 
 ❌ **Plans that change silently**
 - All plan changes require discussion and approval
 
-❌ **Keeping planning docs after feature complete**
-- Delete them; knowledge is now in permanent locations
+❌ **Deleting worklog files**
+- Worklog files are persistent logs and should remain
 
 ## Quick Reference
 
 ```
 START FEATURE
 │
-├─► Create PLAN.md (get approval)
-├─► Create WIP.md
-├─► Create LEARNINGS.md
+├─► Create `localdocs/plan.<topic>.md` (get approval)
+├─► Use `worklog todo` to queue phase/session tasks
+├─► Use `worklog doing` to start tasks
 │
 │   FOR EACH STEP:
 │   │
 │   ├─► RED: Failing test
 │   ├─► GREEN: Make it pass
 │   ├─► REFACTOR: If valuable
-│   ├─► Update WIP.md
-│   ├─► Capture learnings
+│   ├─► Update `worklog` states
+│   ├─► Record completions in `localdocs/worklog.done.md`
 │   └─► **WAIT FOR COMMIT APPROVAL**
 │
 END FEATURE
 │
 ├─► Verify all criteria met
 ├─► Merge learnings (learn agent, adr agent)
-└─► Delete PLAN.md, WIP.md, LEARNINGS.md
+└─► Close/remove only `localdocs/plan.<topic>.md` (keep worklog files)
 ```

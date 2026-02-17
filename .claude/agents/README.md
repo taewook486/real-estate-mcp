@@ -125,7 +125,7 @@ This directory contains specifications for specialized Claude Code agents that w
 ### Workflow & Planning Agents
 
 #### `progress-guardian`
-**Purpose**: Manages progress through significant work using a three-document system.
+**Purpose**: Manages execution progress using a long-term plan + worklog model.
 
 **Use proactively when**:
 - Plan is already approved and implementation is starting
@@ -133,28 +133,31 @@ This directory contains specifications for specialized Claude Code agents that w
 - Starting complex refactoring or investigation execution
 
 **Use reactively when**:
-- Completing a step (update WIP.md)
-- Discovering something (add to LEARNINGS.md)
+- Completing a step (update `localdocs/worklog.doing.md`)
+- Discovering something (capture in `localdocs/learn.<topic>.md`)
 - Plan needs changing (propose changes, get approval)
 - End of work session (checkpoint)
-- Feature complete (merge learnings, delete docs)
+- Feature complete (close plan, summarize logs)
 
 **Core responsibility**:
-- Maintain execution state documents: **WIP.md**, **LEARNINGS.md** (and keep **PLAN.md** synchronized)
+- Maintain execution state via **`localdocs/worklog.todo.md`**, **`localdocs/worklog.doing.md`**, **`localdocs/worklog.done.md`**, and **`localdocs/learn.<topic>.md`** (and keep **`localdocs/plan.<topic>.md`** synchronized)
 - Enforce small increments, TDD, commit approval
-- Never modify PLAN.md without explicit user approval
+- Never modify `localdocs/plan.<topic>.md` without explicit user approval
 - Capture learnings as they occur
-- At end: orchestrate learning merge, then **DELETE all three docs**
+- At end: orchestrate learning merge and close the plan document if appropriate
 
-**Three-Document Model**:
+**Plan + Worklog Model**:
 
 | Document | Purpose | Updates |
 |----------|---------|---------|
-| **PLAN.md** | What we're doing (approved steps) | Only with user approval |
-| **WIP.md** | Where we are now (current state) | Constantly |
-| **LEARNINGS.md** | What we discovered | As discoveries occur |
+| **`localdocs/backlog.<topic>.md`** | Future items not yet included in plan | As future items are identified |
+| **`localdocs/plan.<topic>.md`** | What we're doing (approved steps) | Only with user approval |
+| **`localdocs/worklog.todo.md`** | Phase/session pending tasks | As tasks are identified |
+| **`localdocs/worklog.doing.md`** | Where we are now (current state) | Constantly |
+| **`localdocs/worklog.done.md`** | Completed task log | As tasks are completed |
+| **`localdocs/learn.<topic>.md`** | Knowledge notes to merge | As discoveries occur |
 
-**Key distinction**: Creates TEMPORARY docs (deleted when done). Learnings merged into CLAUDE.md/ADRs before deletion.
+**Key distinction**: `plan.*` tracks approved scope, `worklog.*` tracks execution state, `learn.*` tracks knowledge, and `backlog.*` tracks future pre-plan ideas.
 
 **Related skill**: Load `planning` skill for detailed incremental work principles.
 
@@ -167,7 +170,7 @@ This directory contains specifications for specialized Claude Code agents that w
 ```
 progress-guardian (orchestrates)
     │
-    ├─► Creates: PLAN.md, WIP.md, LEARNINGS.md
+    ├─► Uses: `localdocs/plan.<topic>.md` + `localdocs/worklog.todo.md`/`doing.md`/`done.md` + `localdocs/learn.<topic>.md`
     │
     ├─► For each step:
     │   ├─→ tdd-guardian (RED-GREEN-REFACTOR)
@@ -177,9 +180,9 @@ progress-guardian (orchestrates)
     │   └─→ adr (architectural decisions)
     │
     ├─► At end:
-    │   ├─→ learn (merge LEARNINGS.md → CLAUDE.md)
+    │   ├─→ learn (merge `localdocs/learn.<topic>.md` → CLAUDE.md)
     │   ├─→ docs-guardian (update permanent docs)
-    │   └─→ DELETE all three docs
+    │   └─→ Close plan topic (keep worklog files)
     │
     └─► Related: `planning` skill (incremental work principles)
 ```
@@ -188,25 +191,27 @@ progress-guardian (orchestrates)
 
 1. **Planning phase**
    - Load `planning` skill to define scope, increments, and acceptance criteria
-   - Create and approve PLAN.md
+   - Keep non-current future items in `localdocs/backlog.<topic>.md`
+   - Create and approve `localdocs/plan.<topic>.md`
 
 1. **Execution phase**
-   - Invoke `progress-guardian`: Initialize/update WIP.md and LEARNINGS.md from approved PLAN.md
+   - Invoke `progress-guardian`: Drive execution via `worklog` states from approved `localdocs/plan.<topic>.md`
 
 1. **For each step in plan (development + test loop)**
    - RED: Write failing test (TDD non-negotiable)
    - GREEN: Minimal code to pass
    - REFACTOR: Invoke `refactor-scan` to assess improvements
-   - Update WIP.md with progress
-   - Capture discoveries in LEARNINGS.md
+   - Update `localdocs/worklog.doing.md` with progress
+   - Record task completion in `localdocs/worklog.done.md`
+   - Capture knowledge discoveries in `localdocs/learn.<topic>.md`
    - **WAIT FOR COMMIT APPROVAL**
 
 1. **When plan needs changing**
    - Invoke `progress-guardian`: Propose changes
-   - **Get approval before modifying PLAN.md**
+   - **Get approval before modifying `localdocs/plan.<topic>.md`**
 
 1. **When architectural decision arises**
-   - Add to LEARNINGS.md immediately
+   - Add context to `localdocs/learn.<topic>.md` immediately
    - Invoke `adr` if decision warrants permanent record
 
 1. **Before commits**
@@ -214,15 +219,15 @@ progress-guardian (orchestrates)
    - **Ask for commit approval**
 
 1. **End of session**
-   - Invoke `progress-guardian`: Update WIP.md, session checkpoint
+   - Invoke `progress-guardian`: Update `localdocs/worklog.doing.md`, session checkpoint
 
 1. **Feature complete**
    - Invoke `progress-guardian`: Verify all criteria met
-   - Review LEARNINGS.md for merge destinations
+   - Review `localdocs/learn.<topic>.md` for merge destinations
    - Invoke `learn`: Merge gotchas/patterns → CLAUDE.md
    - Invoke `adr`: Create ADRs for architectural decisions
    - Invoke `docs-guardian`: Update permanent docs
-   - **DELETE PLAN.md, WIP.md, LEARNINGS.md**
+   - Optionally close/remove only `localdocs/plan.<topic>.md`
 
 ## Key Distinctions
 
@@ -233,10 +238,10 @@ progress-guardian (orchestrates)
 | **Lifespan** | Temporary (days/weeks) | Permanent | Permanent | Permanent |
 | **Audience** | Current developer | Future developers | AI assistant + developers | Users + developers |
 | **Purpose** | Track progress, capture learnings | Explain "why" decisions | Explain "how" to work | Explain "what" and "how to use" |
-| **Content** | PLAN + WIP + LEARNINGS | Context, decision, consequences | Gotchas, patterns | Features, API, setup |
-| **Updates** | Constantly (WIP), on approval (PLAN) | Once (rarely updated) | As learning occurs | When features change |
+| **Content** | Plan + worklog + learn + backlog | Context, decision, consequences | Gotchas, patterns | Features, API, setup |
+| **Updates** | Constantly (progress), on approval (plan) | Once (rarely updated) | As learning occurs | When features change |
 | **Format** | Informal notes | Structured ADR format | Informal examples | Professional, polished |
-| **End of life** | **DELETED** when done | Lives forever | Lives forever | Lives forever |
+| **End of life** | Plan may be closed; worklog persists | Lives forever | Lives forever | Lives forever |
 
 ### When to Use Which Documentation Agent
 
@@ -245,7 +250,7 @@ progress-guardian (orchestrates)
 - "What's the next step?"
 - "Where was I when I stopped yesterday?"
 - "What have we discovered so far?"
-- → Answer: Temporary PLAN.md, WIP.md, LEARNINGS.md (deleted when done)
+- → Answer: Plan topic + persistent worklog (`todo`/`doing`/`done`) + `learn.*` + future `backlog.*`
 
 **Use `adr`** for:
 - "Why did we choose technology X over Y?"

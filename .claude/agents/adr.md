@@ -129,9 +129,9 @@ assistant: "That's an important infrastructure decision. Let me use the adr agen
 
 ### Integration Points
 
-**Invoked by wip-guardian:**
+**Invoked by progress-guardian:**
 ```markdown
-[In WIP.md, wip-guardian identifies decision point]
+[In localdocs/worklog.doing.md, progress-guardian identifies decision point]
 
 ## Technical Notes
 
@@ -427,7 +427,7 @@ We will use **SendGrid** for all email sending.
 
 ### Neutral
 
-- Need to add rate limiting to handle free tier limits (see step 8 in WIP.md)
+- Need to add rate limiting to handle free tier limits (see step 8 in localdocs/worklog.doing.md)
 
 ## Implementation Notes
 
@@ -849,12 +849,12 @@ The `adr` agent is successful when:
 
 ## Integration with Other Agents
 
-### With wip-guardian
+### With progress-guardian
 
 ```markdown
-[wip-guardian identifies decision in WIP.md]
+[progress-guardian identifies decision in localdocs/worklog.doing.md]
 → Invoke adr agent to create ADR
-→ Update WIP.md with ADR reference
+→ Update localdocs/worklog.doing.md with ADR reference
 ```
 
 ### With docs-guardian
@@ -886,7 +886,7 @@ The `adr` agent creates Architecture Decision Records for significant architectu
 - Identifies when decisions merit ADRs (not everything does)
 - Documents context, alternatives, trade-offs, and consequences
 - Maintains ADR index and numbering
-- Integrates with wip-guardian, docs-guardian, and learn agents
+- Integrates with progress-guardian, docs-guardian, and learn agents
 - Prevents "why did we do it this way?" confusion
 - Provides architectural continuity as team evolves
 

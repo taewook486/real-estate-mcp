@@ -167,8 +167,8 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--output-root",
-        default="gitignore/assets/data",
-        help="Output root directory (default: gitignore/assets/data)",
+        default="localdocs/assets/data",
+        help="Output root directory (default: localdocs/assets/data)",
     )
     return parser.parse_args()
 
