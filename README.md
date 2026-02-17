@@ -1,70 +1,122 @@
 # Korea Real Estate OpenAPI for Claude
 
-MCP server for querying Korea's apartment trade data (국토교통부 실거래가 API) through Claude.
+MCP server exposing Korea's MOLIT (국토교통부) real estate transaction API to Claude Desktop.
+Provides 13+ tools for querying apartment, officetel, villa, single-house, and commercial trade/rent data, apartment subscriptions, and public auctions.
 
-## Prerequisites: Environment Variables
+## Supported Tools
 
-Set the API key before running the MCP server.
+- [x] Apartment trade / rent (`get_apartment_trades`, `get_apartment_rent`)
+- [x] Officetel trade / rent (`get_officetel_trades`, `get_officetel_rent`)
+- [x] Villa / multi-family housing trades (`get_villa_trades`)
+- [x] Single-house / multi-household trade / rent (`get_single_house_trades`, `get_single_house_rent`)
+- [x] Commercial building trades (`get_commercial_trade`)
+- [x] Apartment subscription notices / results (`get_apt_subscription_info`, `get_apt_subscription_results`)
+- [x] Onbid public auction bid results (`get_public_auction_items`)
+- [x] Onbid item lookup (`get_onbid_thing_info_list`)
+- [x] Onbid code / address lookup (`get_onbid_*_code_info`, `get_onbid_addr*_info`)
+- [x] Region code lookup (`get_region_code`)
 
-Create a `.env` file in the project root:
+## Prerequisites
 
-```
-DATA_GO_KR_API_KEY=your_api_key_here
-```
+- [Claude Desktop](https://claude.ai/download)
+- [uv](https://docs.astral.sh/uv/getting-started/installation/)
+- [공공데이터포털 API 키](https://www.data.go.kr) (apply for the services below)
+  - 국토교통부_아파트 매매 실거래가 자료
+  - 국토교통부_아파트 전월세 자료
+  - 국토교통부_오피스텔 매매 신고 자료
+  - 국토교통부_오피스텔 전월세 자료
+  - 국토교통부_연립다세대 매매 실거래가 자료
+  - 국토교통부_단독/다가구 매매 실거래가 자료
+  - 국토교통부_단독/다가구 전월세 자료
+  - 국토교통부_상업용건물(오피스) 매매 신고 자료
+  - 한국자산관리공사_온비드 캠코공매물건 조회서비스
+  - 한국자산관리공사_온비드 이용기관 공매물건 조회서비스
+  - 한국자산관리공사_온비드 코드 조회서비스
+  - 청약홈 APT 공고 (ApplyhomeInfoSvc, ApplyhomeStatSvc)
 
-Obtain the API key from [공공데이터포털](https://www.data.go.kr).
-Service name: 국토교통부_아파트매매_실거래가_자료
+## Getting Started
 
-This project reuses `DATA_GO_KR_API_KEY` for Applyhome(odcloud) and Onbid(B010003) by default.
-If you want to override:
-- Applyhome: `ODCLOUD_API_KEY` (Authorization header) or `ODCLOUD_SERVICE_KEY` (query param)
-- Onbid: `ONBID_API_KEY`
+### Configure Claude Desktop
 
-`.env` is listed in `.gitignore` and will not be committed.
-Both MCP Inspector and Claude Desktop require this key to function correctly.
+1. Clone this repository locally.
 
-## Testing with MCP Inspector
+    ```bash
+    git clone <repository_url>
+    cd claude-real-estate-openapi
+    ```
 
-Test the MCP tools directly over the MCP protocol locally.
+1. Open the Claude Desktop config file (`claude_desktop_config.json`).
 
-```bash
-uv run mcp dev src/real_estate/mcp_server/server.py
-```
+    ```bash
+    open "$HOME/Library/Application Support/Claude/claude_desktop_config.json"
+    ```
 
-Open `http://localhost:6274` in a browser, then:
+1. Add the entry below under `mcpServers`.
+   If you already have other servers, add only the `real-estate` object inside the existing `mcpServers` object.
 
-1. Add `DATA_GO_KR_API_KEY` under **Environment Variables**
-2. Click **Connect**
-3. Call `get_region_code` first, then `get_apartment_trades`
-
-Inspector does not load `.env` automatically — the API key must be entered directly in the UI.
-
-## Registering with Claude Desktop
-
-Open the config file:
-
-```bash
-open "$HOME/Library/Application Support/Claude/claude_desktop_config.json"
-```
-
-Add the `real-estate` entry under `mcpServers`:
-
-```json
-{
-  "mcpServers": {
-    "real-estate": {
-      "command": "uv",
-      "args": [
-        "run",
-        "--directory", "/Users/bachtaeyeong/10_SrcHub/claude-real-estate-openapi",
-        "python", "src/real_estate/mcp_server/server.py"
-      ],
-      "env": {
-        "DATA_GO_KR_API_KEY": "your_api_key_here"
+    ```json
+    {
+      "mcpServers": {
+        "real-estate": {
+          "command": "uv",
+          "args": [
+            "run",
+            "--directory", "/path/to/claude-real-estate-openapi",
+            "python", "src/real_estate/mcp_server/server.py"
+          ],
+          "env": {
+            "DATA_GO_KR_API_KEY": "your_api_key_here"
+          }
+        }
       }
     }
-  }
-}
-```
+    ```
 
-Restart Claude Desktop after saving. The `real-estate` server will appear in the tool list.
+1. Restart Claude Desktop.
+   Setup is complete when you can see the `real-estate` server in the tool list.
+
+1. For better responses, create a **Project** in Claude Desktop and paste [docs/prompt.custom-instructions-ko.md](docs/prompt.custom-instructions-ko.md) into the **Project Instructions** tab.
+
+   > Paste it into the **Project Instructions** tab, not the chat input.
+
+### Run and Debug Locally
+
+1. Create a `.env` file in the project root.
+
+    ```bash
+    cp .env.example .env
+    ```
+
+    Set your API key in the file.
+
+    ```
+    DATA_GO_KR_API_KEY=your_api_key_here
+    ```
+
+    `DATA_GO_KR_API_KEY` is also used by default for Applyhome (odcloud) and Onbid (B010003).
+    If you want different keys per service, set:
+
+    ```
+    ODCLOUD_API_KEY=...        # Applyhome Authorization header
+    ODCLOUD_SERVICE_KEY=...    # Applyhome query param
+    ONBID_API_KEY=...          # Onbid
+    ```
+
+1. If Inspector is already running, stop it first.
+
+    ```bash
+    PID=$(lsof -ti :6274)
+    [ -n "$PID" ] && kill $PID
+    ```
+
+1. Run MCP Inspector.
+
+    ```bash
+    uv run mcp dev src/real_estate/mcp_server/server.py
+    ```
+
+    Your browser opens automatically.
+    If the window is closed or you need to reconnect, open the full URL shown after `MCP Inspector is up and running at:` in the terminal.
+    (Example: `http://localhost:6274/?MCP_PROXY_AUTH_TOKEN=...`)
+
+1. Run `get_region_code` first to check `LAWD_CD`, then call tools like `get_apartment_trades` to verify everything works.

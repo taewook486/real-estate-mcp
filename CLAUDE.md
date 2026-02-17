@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-MCP server exposing Korea's MOLIT (국토교통부) real estate transaction API to Claude Desktop. The server wraps `apis.data.go.kr` XML endpoints and provides 9 tools for querying apartment, officetel, villa, single-house, and commercial trade/rent data.
+MCP server exposing Korea's MOLIT (국토교통부) real estate transaction API to Claude Desktop. The server wraps XML endpoints from `apis.data.go.kr`, `api.odcloud.kr`, and `openapi.onbid.co.kr`, providing 13+ tools for querying apartment, officetel, villa, single-house, commercial trade/rent data, APT subscription info, and public auction (공매) bid results.
 
 Requires `DATA_GO_KR_API_KEY` from [공공데이터포털](https://www.data.go.kr) in a `.env` file at the project root.
 
@@ -53,6 +53,14 @@ All MCP logic lives in a single file: [src/real_estate/mcp_server/server.py](src
 - Loads `src/real_estate/resources/region_codes.txt` (tab-separated: 10-digit code, name, status)
 - `get_region_code` tool must be called first; returns the 5-digit `LAWD_CD` used by all trade/rent tools
 - Gu/gun-level rows (last 5 digits `00000`) are preferred as the canonical match
+
+**Additional tool groups (beyond trade/rent):**
+- `get_apt_subscription_info` / `get_apt_subscription_results` — APT 청약 from `api.odcloud.kr`
+- `get_public_auction_items` — onbid 공매 bid results from `apis.data.go.kr/B010003`
+- `get_onbid_thing_info_list` — onbid item list from `openapi.onbid.co.kr`
+- `get_onbid_*_code_info` / `get_onbid_addr*_info` — onbid code/address lookup from `openapi.onbid.co.kr`
+
+These tools use the same `_run_trade_tool` / `_run_rent_tool` pattern but hit different base URLs. The `_ONBID_*` and `_ODCLOUD_*` URL constants are defined at the top of server.py.
 
 **Key design constraints:**
 - Prices are in 만원 (10,000 KRW) units, field suffix `_10k`
