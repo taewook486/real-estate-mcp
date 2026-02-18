@@ -103,3 +103,9 @@ The server runs as a standalone HTTP process. Use this when you want to share on
     claude mcp list
     claude mcp get real-estate
     ```
+
+## Remove
+
+```bash
+claude mcp remove real-estate
+```

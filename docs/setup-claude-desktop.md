@@ -121,3 +121,11 @@ The server runs as a standalone HTTP process. Claude Desktop connects to it over
 
 1. Restart Claude Desktop.
    Setup is complete when you can see the `real-estate` server in the tool list.
+
+## Remove
+
+Open the Claude Desktop config file, delete the `real-estate` entry from `mcpServers`, then restart Claude Desktop.
+
+```bash
+open "$HOME/Library/Application Support/Claude/claude_desktop_config.json"
+```

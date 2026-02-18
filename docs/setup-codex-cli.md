@@ -102,3 +102,9 @@ The server runs as a standalone HTTP process. Use this when you want to share on
     codex mcp list
     codex mcp get real-estate
     ```
+
+## Remove
+
+```bash
+codex mcp remove real-estate
+```

@@ -59,3 +59,7 @@ This page describes how to connect the real estate MCP server to [ChatGPT](https
 - The MCP endpoint path is `/mcp` (e.g. `http://127.0.0.1:8000/mcp`).
 - For production use, deploy behind a reverse proxy (nginx, Caddy, etc.) with a valid TLS certificate instead of ngrok.
 - ChatGPT does not support `AGENTS.md` or **Project Instructions** in the same way as Claude clients. Add any custom instructions directly in the ChatGPT system prompt or custom instructions settings.
+
+## Remove
+
+In ChatGPT, open **Settings → Connectors** and delete the `real-estate` connector entry.
