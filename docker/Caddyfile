@@ -1,13 +1,13 @@
-# Local development: HTTP only (no TLS)
-# For production with a domain, replace ":80" with "your-domain.com"
-# and Caddy will automatically obtain a Let's Encrypt certificate.
+# Production: replace the domain below with your actual domain or DDNS hostname.
+# Caddy will automatically obtain a Let's Encrypt certificate via HTTP-01 challenge.
+# Port 80 and 443 must be open and forwarded to this host on your router.
+#
+# For local development (no TLS), replace the domain with ":80".
 
-:80 {
+tae0yfi.ddns.net {
     reverse_proxy /mcp* mcp:8000
 
-    # Strip idle connections quickly for SSE (MCP uses server-sent events)
     header {
-        # Disable buffering for SSE streams
         -X-Accel-Buffering
     }
 }
