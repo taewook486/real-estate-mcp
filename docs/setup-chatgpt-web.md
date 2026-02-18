@@ -13,7 +13,7 @@ This page describes how to connect the real estate MCP server to [ChatGPT](https
 
 ## Auth0 and Server Setup
 
-Complete the **Auth0** option in [setup-oauth.md](setup-oauth.md#auth0).
+Complete the **Auth0** option in [setup-oauth.md](setup-oauth.md#option-b-auth0-chatgpt-web--authorization-code--pkce--dcr).
 
 ## Verify Before Connecting
 

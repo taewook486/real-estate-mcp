@@ -12,7 +12,7 @@ This page describes how to connect the real estate MCP server to [Claude.ai](htt
 
 ## Server Setup
 
-Enable OAuth with the **client credentials** option in [setup-oauth.md](setup-oauth.md#client-credentials).
+Enable OAuth with the **client credentials** option in [setup-oauth.md](setup-oauth.md#option-a-client-credentials-claude-web--colleagues).
 
 ## Verify Before Connecting
 
