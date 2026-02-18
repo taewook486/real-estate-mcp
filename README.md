@@ -83,6 +83,7 @@ For HTTP mode, other clients, or per-service API key configuration, see the docs
 | Client | Transport | Guide |
 |--------|-----------|-------|
 | Claude Desktop | stdio / HTTP | [docs/setup-claude-desktop.md](docs/setup-claude-desktop.md) |
+| Claude (web) | HTTP only | [docs/setup-claude-web.md](docs/setup-claude-web.md) |
 | Claude CLI | stdio / HTTP | [docs/setup-claude-cli.md](docs/setup-claude-cli.md) |
 | Codex CLI | stdio / HTTP | [docs/setup-codex-cli.md](docs/setup-codex-cli.md) |
 | ChatGPT (web) | HTTP only | [docs/setup-chatgpt-web.md](docs/setup-chatgpt-web.md) |

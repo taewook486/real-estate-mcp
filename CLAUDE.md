@@ -41,7 +41,7 @@ MCP tools are spread across modules under [src/real_estate/mcp_server/](src/real
 - [\_\_init\_\_.py](src/real_estate/mcp_server/__init__.py) — creates the shared `mcp = FastMCP("real-estate")` instance and loads `.env`
 - [\_helpers.py](src/real_estate/mcp_server/_helpers.py) — all URL constants, shared runners, HTTP fetch, XML parse, and summary helpers
 - [\_region.py](src/real_estate/mcp_server/_region.py) — region code search logic
-- [tools/](src/real_estate/mcp_server/tools/) — one file per domain: `trade.py`, `rent.py`, `subscription.py`, `onbid.py`, `finance.py`
+- [tools/](src/real_estate/mcp_server/tools/) — one file per domain: `trade.py`, `rent.py`, `subscription.py`, `onbid.py`, `finance.py` (`calculate_loan_payment`, `calculate_compound_growth`, `calculate_monthly_cashflow`)
 - [parsers/](src/real_estate/mcp_server/parsers/) — XML parsers: `trade.py`, `rent.py`, `onbid.py`
 
 **Request flow for any trade/rent tool:**
@@ -82,6 +82,11 @@ All URL constants (`_ONBID_*`, `_ODCLOUD_*`, etc.) are defined in `_helpers.py`.
 **Utility modules** ([src/real_estate/common_utils/](src/real_estate/common_utils/)) — standalone CLI tools, not part of MCP:
 - `docx_parser.py` / `hwp_parser.py` — extract text from .docx/.hwp files
 - `opendata_bulk_collector.py` — CLI to collect monthly apartment rent snapshots into JSON
+
+**HTTP mode and Docker deployment:**
+- `real-estate-mcp --transport http [--host 127.0.0.1] [--port 8000]` — starts streamable-HTTP server for remote clients
+- `docker/docker-compose.yml` — runs the MCP server behind a Caddy reverse proxy (TLS termination); the `mcp` service is not port-exposed directly
+- The server entry point is the `real-estate-mcp` CLI script registered in `pyproject.toml`
 
 ## Testing Conventions
 
