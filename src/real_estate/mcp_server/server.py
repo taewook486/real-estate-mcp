@@ -111,9 +111,22 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.transport == "http":
+        import uvicorn
+        from mcp.server.transport_security import TransportSecuritySettings
+
         mcp.settings.host = args.host
         mcp.settings.port = args.port
-        mcp.run(transport="streamable-http")
+        mcp.settings.transport_security = TransportSecuritySettings(
+            enable_dns_rebinding_protection=False,
+        )
+        app = mcp.streamable_http_app()
+        uvicorn.run(
+            app,
+            host=args.host,
+            port=args.port,
+            proxy_headers=True,
+            forwarded_allow_ips="192.168.45.1",
+        )
     else:
         mcp.run()
 

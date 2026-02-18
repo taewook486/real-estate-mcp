@@ -91,9 +91,7 @@ The server runs as a standalone HTTP process. Use this when you want to share on
 1. Register the server in Codex CLI using the HTTP URL.
 
     ```bash
-    codex mcp add real-estate \
-      --transport http \
-      --url http://127.0.0.1:8000/mcp
+    codex mcp add real-estate --url http://127.0.0.1:8000/mcp
     ```
 
 1. Verify that the server is registered.
