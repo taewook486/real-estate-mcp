@@ -3,8 +3,15 @@
 # Port 80 and 443 must be open and forwarded to this host on your router.
 #
 # For local development (no TLS), replace the domain with ":80".
+#
+# Bearer token auth: set MCP_ACCESS_TOKEN in .env to enable.
+# If the variable is empty or unset, all requests are allowed through (development mode).
+# To revoke access: remove MCP_ACCESS_TOKEN from .env and restart with `docker compose up -d`.
 
 tae0yfi.ddns.net {
+    @unauthorized expression `{env.MCP_ACCESS_TOKEN} != "" && {http.request.header.Authorization} != "Bearer {env.MCP_ACCESS_TOKEN}"`
+    respond @unauthorized "Unauthorized" 401
+
     reverse_proxy /mcp* mcp:8000
 
     header {

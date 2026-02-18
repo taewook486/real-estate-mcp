@@ -27,6 +27,9 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro  # relative to docker/
       - caddy_data:/data
       - caddy_config:/config
+    env_file: ../.env
+    environment:
+      MCP_ACCESS_TOKEN: ${MCP_ACCESS_TOKEN:-}
     networks:
       - internal
     depends_on:
