@@ -2,7 +2,7 @@
 
 [English](README.md) | [한국어](README-ko.md)
 
-Claude, ChatGPT 등 AI 챗·CLI 서비스에 연동 가능한 부동산 정보 MCP 서버.
+Ask Claude about Korean apartment prices — powered by MOLIT's open API.
 국토교통부 실거래가 API를 노출하며, 아파트·오피스텔·빌라·단독주택·상업용 건물의 매매·전월세, 청약 공고·결과, 온비드 공매 조회를 포함한 14개 이상의 도구를 제공한다.
 
 ## Supported tools

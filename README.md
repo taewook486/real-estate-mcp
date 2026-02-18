@@ -2,7 +2,7 @@
 
 [English](README.md) | [한국어](README-ko.md)
 
-MCP server exposing Korea's MOLIT (국토교통부) real estate transaction API to AI chat and CLI services — Claude, ChatGPT, Codex CLI, and more.
+Ask Claude about Korean apartment prices — powered by MOLIT's open API.
 Provides 14+ tools for querying apartment, officetel, villa, single-house, and commercial trade/rent data, apartment subscriptions, and public auctions.
 
 ## Supported Tools
