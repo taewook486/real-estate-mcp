@@ -72,11 +72,16 @@ for example, to connect [ChatGPT](docs/setup-chatgpt-web.md) or other remote cli
 
 1. Verify the MCP server is running.
 
+    The MCP endpoint requires specific headers, so use the command below instead of a plain `curl`.
+
     ```bash
-    curl http://localhost/mcp
+    curl -s -X POST http://localhost/mcp \
+      -H "Content-Type: application/json" \
+      -H "Accept: application/json, text/event-stream" \
+      -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"0.1"}}}'
     ```
 
-    You should receive an MCP JSON response.
+    You should receive a JSON response containing `protocolVersion`.
 
 1. Connect Claude Desktop to the running server. Open `claude_desktop_config.json`:
 

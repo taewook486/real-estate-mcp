@@ -247,7 +247,10 @@ ChatGPT 등 외부 클라이언트에 HTTP로 서빙할 때 사용한다.
 1. MCP 서버 동작을 확인한다.
 
     ```bash
-    curl http://localhost/mcp
+    curl -s -X POST http://localhost/mcp \
+      -H "Content-Type: application/json" \
+      -H "Accept: application/json, text/event-stream" \
+      -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"0.1"}}}'
     ```
 
 1. 컨테이너를 종료한다.

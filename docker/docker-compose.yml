@@ -10,7 +10,8 @@ services:
       - internal
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/mcp')"]
+      test: ["CMD", "python", "-c",
+        "import urllib.request, json; req = urllib.request.Request('http://localhost:8000/mcp', data=json.dumps({'jsonrpc':'2.0','id':1,'method':'initialize','params':{'protocolVersion':'2024-11-05','capabilities':{},'clientInfo':{'name':'healthcheck','version':'0.1'}}}).encode(), headers={'Content-Type':'application/json','Accept':'application/json, text/event-stream'}); urllib.request.urlopen(req)"]
       interval: 30s
       timeout: 5s
       start_period: 10s
