@@ -110,11 +110,11 @@ Add the following to your `.env`:
 AUTH_MODE=oauth
 PUBLIC_BASE_URL=https://your-domain.ddns.net
 
-# Legacy client_credentials (Claude Web/Desktop — keep existing values)
+# OAuth client_credentials (used by Claude Web)
 OAUTH_CLIENT_ID=your_client_id_here
 OAUTH_CLIENT_SECRET=your_client_secret_here
 
-# Auth0 (ChatGPT Web)
+# Auth0 PKCE (used by ChatGPT Web)
 AUTH0_DOMAIN=your-tenant.us.auth0.com
 AUTH0_AUDIENCE=https://your-domain.ddns.net/mcp
 ```

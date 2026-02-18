@@ -81,13 +81,13 @@ The server runs as a standalone HTTP process. Use this when you want to share on
 1. Start the server.
 
     ```bash
-    uv run python src/real_estate/mcp_server/server.py --transport http
+    uv run real-estate-mcp --transport http
     ```
 
     By default this binds to `http://127.0.0.1:8000`. To change host or port:
 
     ```bash
-    uv run python src/real_estate/mcp_server/server.py --transport http --host 0.0.0.0 --port 9000
+    uv run real-estate-mcp --transport http --host 0.0.0.0 --port 9000
     ```
 
 1. Register the server in Claude CLI using the HTTP URL.

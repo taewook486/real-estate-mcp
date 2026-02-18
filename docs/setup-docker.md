@@ -4,7 +4,7 @@ This page describes how to run the real estate MCP server using Docker Compose,
 with [Caddy](https://caddyserver.com/) as a reverse proxy.
 
 Use this setup when you want to serve the MCP server over HTTP —
-for example, to connect [ChatGPT](docs/setup-chatgpt-web.md) or other remote clients.
+for example, to connect [ChatGPT](setup-chatgpt-web.md) or other remote clients.
 
 ## Prerequisites
 
@@ -194,7 +194,7 @@ Set `AUTH_MODE` in `.env` to control access:
 | `AUTH_MODE` | Behaviour | When to use |
 |-------------|-----------|-------------|
 | `none` (default) | No authentication | Development, local trusted network |
-| `oauth` | OAuth 2.0 `client_credentials` | Claude Web, ChatGPT Web, shared access |
+| `oauth` | OAuth 2.0 — supports both `client_credentials` (Claude Web) and Auth0 authorization code + PKCE (ChatGPT Web) | Shared access over the internet |
 
 ### Enable OAuth (AUTH_MODE=oauth)
 
