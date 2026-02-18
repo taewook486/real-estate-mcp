@@ -1,5 +1,7 @@
 # Korea Real Estate MCP
 
+[English](README.md) | [한국어](README-ko.md)
+
 MCP server exposing Korea's MOLIT (국토교통부) real estate transaction API to AI chat and CLI services — Claude, ChatGPT, Codex CLI, and more.
 Provides 14+ tools for querying apartment, officetel, villa, single-house, and commercial trade/rent data, apartment subscriptions, and public auctions.
 
@@ -33,6 +35,8 @@ Provides 14+ tools for querying apartment, officetel, villa, single-house, and c
   - 한국자산관리공사_온비드 이용기관 공매물건 조회서비스
   - 한국자산관리공사_온비드 코드 조회서비스
   - 청약홈 APT 공고 (ApplyhomeInfoSvc, ApplyhomeStatSvc)
+
+> For parsing API specs in hwp or docx format, see [Common Utils Guide](docs/common_utils.md)
 
 ## Quick Start: Claude Desktop (stdio)
 
@@ -194,7 +198,3 @@ Use this to serve over HTTP for ChatGPT or other remote clients.
     ```
 
 For domain + HTTPS setup (home server deployment), see [docs/setup-docker.md](docs/setup-docker.md).
-
-## Additional Docs
-
-- [Common Utils Guide](docs/common_utils.md)

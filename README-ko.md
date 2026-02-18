@@ -1,5 +1,7 @@
 # Korea Real Estate MCP
 
+[English](README.md) | [한국어](README-ko.md)
+
 Claude, ChatGPT 등 AI 챗·CLI 서비스에 연동 가능한 부동산 정보 MCP 서버.
 국토교통부 실거래가 API를 노출하며, 아파트·오피스텔·빌라·단독주택·상업용 건물의 매매·전월세, 청약 공고·결과, 온비드 공매 조회를 포함한 14개 이상의 도구를 제공한다.
 
@@ -18,7 +20,6 @@ Claude, ChatGPT 등 AI 챗·CLI 서비스에 연동 가능한 부동산 정보 M
 
 ## Prerequisites
 
-- [Claude Desktop](https://claude.ai/download)
 - [uv](https://docs.astral.sh/uv/getting-started/installation/)
 - [공공데이터포털 API 키](https://www.data.go.kr) (아래 서비스 신청)
   - 국토교통부\_아파트 매매 실거래가 자료
@@ -34,6 +35,61 @@ Claude, ChatGPT 등 AI 챗·CLI 서비스에 연동 가능한 부동산 정보 M
   - 한국자산관리공사\_온비드 이용기관 공매물건 조회서비스
   - 한국자산관리공사\_온비드 코드 조회서비스
   - 청약홈 APT 공고 (ApplyhomeInfoSvc, ApplyhomeStatSvc)
+
+> hwp, docx 포맷 API 명세서 처리시 다음 문서 참고: [Common Utils Guide](docs/common_utils.md)
+
+## Quick Start: Claude Desktop (stdio)
+
+가장 빠른 시작 방법 — 서버가 Claude Desktop의 자식 프로세스로 실행된다.
+
+1. 저장소를 로컬에 클론한다.
+
+    ```bash
+    git clone <저장소_URL>
+    cd real-estate-mcp
+    ```
+
+1. Claude Desktop 설정 파일을 연다.
+
+    ```bash
+    open "$HOME/Library/Application Support/Claude/claude_desktop_config.json"
+    ```
+
+1. `mcpServers`에 아래 항목을 추가한다.
+
+    ```json
+    {
+      "mcpServers": {
+        "real-estate": {
+          "command": "uv",
+          "args": [
+            "run",
+            "--directory", "/path/to/real-estate-mcp",
+            "python", "src/real_estate/mcp_server/server.py"
+          ],
+          "env": {
+            "DATA_GO_KR_API_KEY": "your_api_key_here"
+          }
+        }
+      }
+    }
+    ```
+
+1. Claude Desktop을 재시작한다. 도구 목록에 `real-estate` 서버가 표시되면 완료.
+
+1. 더 정확한 응답을 위해 Claude Desktop에서 **Project**를 만들고, [docs/prompt.custom-instructions-ko.md](docs/prompt.custom-instructions-ko.md) 내용을 **Project Instructions** 탭에 붙여넣는다.
+
+HTTP 모드, 다른 클라이언트, 서비스별 API 키 설정은 아래 문서를 참고한다.
+
+## 다른 클라이언트 연결
+
+| 클라이언트 | 전송 방식 | 가이드 |
+|-----------|----------|--------|
+| Claude Desktop | stdio / HTTP | [docs/setup-claude-desktop.md](docs/setup-claude-desktop.md) |
+| Claude (웹) | HTTP only | [docs/setup-claude-web.md](docs/setup-claude-web.md) |
+| Claude CLI | stdio / HTTP | [docs/setup-claude-cli.md](docs/setup-claude-cli.md) |
+| Codex CLI | stdio / HTTP | [docs/setup-codex-cli.md](docs/setup-codex-cli.md) |
+| ChatGPT (웹) | HTTP only | [docs/setup-chatgpt-web.md](docs/setup-chatgpt-web.md) |
 
 ## Getting started
 
