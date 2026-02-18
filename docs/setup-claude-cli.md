@@ -51,7 +51,7 @@ The server runs as a child process of Claude CLI. No separate server process is 
     claude mcp get real-estate
     ```
 
-1. For better responses, create a `CLAUDE.md` file in your working project root and paste [prompt.custom-instructions-ko.md](prompt.custom-instructions-ko.md) into it.
+1. For better responses, create a `CLAUDE.md` file in your working project root and paste [resources/custom-instructions-ko.md](../resources/custom-instructions-ko.md) into it.
 
    > In Claude CLI, use `CLAUDE.md` (project root) instead of Claude Desktop's **Project Instructions** tab.
 

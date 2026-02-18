@@ -36,7 +36,7 @@ Ask Claude about Korean apartment prices — powered by MOLIT's open API.
   - 한국자산관리공사\_온비드 코드 조회서비스
   - 청약홈 APT 공고 (ApplyhomeInfoSvc, ApplyhomeStatSvc)
 
-> hwp, docx 포맷 API 명세서 처리시 다음 문서 참고: [Common Utils Guide](docs/common_utils.md)
+> hwp, docx 포맷 API 명세서 처리시 다음 문서 참고: [Common Utils Guide](docs/guide-common-utils.md)
 
 ## Quick Start: Claude Desktop (stdio)
 
@@ -77,7 +77,7 @@ Ask Claude about Korean apartment prices — powered by MOLIT's open API.
 
 1. Claude Desktop을 재시작한다. 도구 목록에 `real-estate` 서버가 표시되면 완료.
 
-1. 더 정확한 응답을 위해 Claude Desktop에서 **Project**를 만들고, [docs/prompt.custom-instructions-ko.md](docs/prompt.custom-instructions-ko.md) 내용을 **Project Instructions** 탭에 붙여넣는다.
+1. 더 정확한 응답을 위해 Claude Desktop에서 **Project**를 만들고, [resources/custom-instructions-ko.md](resources/custom-instructions-ko.md) 내용을 **Project Instructions** 탭에 붙여넣는다.
 
 HTTP 모드, 다른 클라이언트, 서비스별 API 키 설정은 아래 문서를 참고한다.
 
@@ -130,7 +130,7 @@ HTTP 모드, 다른 클라이언트, 서비스별 API 키 설정은 아래 문�
 
 1. Claude Desktop을 재시작한다. 도구 목록에 `real-estate` 서버가 표시되면 설정이 완료된 것이다.
 
-1. 더 정확한 응답을 위해 Claude Desktop에서 **Project**를 만들고, [docs/prompt.custom-instructions-ko.md](docs/prompt.custom-instructions-ko.md) 내용을 **Project Instructions** 탭에 붙여넣는다.
+1. 더 정확한 응답을 위해 Claude Desktop에서 **Project**를 만들고, [resources/custom-instructions-ko.md](resources/custom-instructions-ko.md) 내용을 **Project Instructions** 탭에 붙여넣는다.
 
    > 파일을 채팅 입력란이 아니라 **Project Instructions** 탭에 넣어야한다.
 
@@ -171,7 +171,7 @@ HTTP 모드, 다른 클라이언트, 서비스별 API 키 설정은 아래 문�
     codex mcp get real-estate
     ```
 
-1. Codex CLI에서 더 정확한 응답을 위해 프로젝트 루트에 `AGENTS.md`를 만들고, [docs/prompt.custom-instructions-ko.md](docs/prompt.custom-instructions-ko.md) 내용을 붙여넣는다.
+1. Codex CLI에서 더 정확한 응답을 위해 프로젝트 루트에 `AGENTS.md`를 만들고, [resources/custom-instructions-ko.md](resources/custom-instructions-ko.md) 내용을 붙여넣는다.
 
    > Codex CLI에서는 Claude Desktop의 **Project Instructions** 탭 대신 프로젝트 루트의 `AGENTS.md`를 사용한다.
 

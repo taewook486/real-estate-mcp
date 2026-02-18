@@ -36,7 +36,7 @@ Provides 14+ tools for querying apartment, officetel, villa, single-house, and c
   - 한국자산관리공사_온비드 코드 조회서비스
   - 청약홈 APT 공고 (ApplyhomeInfoSvc, ApplyhomeStatSvc)
 
-> For parsing API specs in hwp or docx format, see [Common Utils Guide](docs/common_utils.md)
+> For parsing API specs in hwp or docx format, see [Common Utils Guide](docs/guide-common-utils.md)
 
 ## Quick Start: Claude Desktop (stdio)
 
@@ -78,7 +78,7 @@ The fastest way to get started — the server runs as a child process of Claude 
 1. Restart Claude Desktop.
    Setup is complete when you can see the `real-estate` server in the tool list.
 
-1. For better responses, create a **Project** in Claude Desktop and paste [docs/prompt.custom-instructions-ko.md](docs/prompt.custom-instructions-ko.md) into the **Project Instructions** tab.
+1. For better responses, create a **Project** in Claude Desktop and paste [resources/custom-instructions-ko.md](resources/custom-instructions-ko.md) into the **Project Instructions** tab.
 
 For HTTP mode, other clients, or per-service API key configuration, see the docs below.
 
@@ -91,110 +91,5 @@ For HTTP mode, other clients, or per-service API key configuration, see the docs
 | Claude CLI | stdio / HTTP | [docs/setup-claude-cli.md](docs/setup-claude-cli.md) |
 | Codex CLI | stdio / HTTP | [docs/setup-codex-cli.md](docs/setup-codex-cli.md) |
 | ChatGPT (web) | HTTP only | [docs/setup-chatgpt-web.md](docs/setup-chatgpt-web.md) |
-
-## Run on Local Machine
-
-1. Get the repository root.
-
-    ```bash
-    # bash/zsh
-    REPOSITORY_ROOT=$(git rev-parse --show-toplevel)
-    ```
-
-    ```powershell
-    # PowerShell
-    $REPOSITORY_ROOT = git rev-parse --show-toplevel
-    ```
-
-1. Create a `.env` file in the project root.
-
-    ```bash
-    cp .env.example .env
-    ```
-
-    Set your API key:
-
-    ```
-    DATA_GO_KR_API_KEY=your_api_key_here
-    ```
-
-    `DATA_GO_KR_API_KEY` is also used by default for Applyhome (odcloud) and Onbid.
-    If you want different keys per service, set:
-
-    ```
-    ODCLOUD_API_KEY=...        # Applyhome Authorization header
-    ODCLOUD_SERVICE_KEY=...    # Applyhome query param
-    ONBID_API_KEY=...          # Onbid
-    ```
-
-1. If Inspector is already running, stop it first.
-
-    ```bash
-    PID=$(lsof -ti :6274)
-    [ -n "$PID" ] && kill $PID
-    ```
-
-1. Run MCP Inspector.
-
-    ```bash
-    uv run mcp dev src/real_estate/mcp_server/server.py
-    ```
-
-    Your browser opens automatically.
-    If the window is closed or you need to reconnect, open the full URL shown after `MCP Inspector is up and running at:` in the terminal.
-
-1. Run `get_region_code` first to check `LAWD_CD`, then call tools like `get_apartment_trades` to verify everything works.
-
-## Run in Docker
-
-Packages the MCP server + Caddy reverse proxy as containers.
-Use this to serve over HTTP for ChatGPT or other remote clients.
-
-1. Get the repository root.
-
-    ```bash
-    # bash/zsh
-    REPOSITORY_ROOT=$(git rev-parse --show-toplevel)
-    ```
-
-    ```powershell
-    # PowerShell
-    $REPOSITORY_ROOT = git rev-parse --show-toplevel
-    ```
-
-1. Create a `.env` file in the project root (same as local setup above).
-
-1. Build and start the containers.
-
-    ```bash
-    # bash/zsh
-    docker compose -f $REPOSITORY_ROOT/docker/docker-compose.yml up -d --build
-    ```
-
-    ```powershell
-    # PowerShell
-    docker compose -f $REPOSITORY_ROOT/docker/docker-compose.yml up -d --build
-    ```
-
-1. Verify the MCP server is running.
-
-    ```bash
-    curl -s -X POST http://localhost/mcp \
-      -H "Content-Type: application/json" \
-      -H "Accept: application/json, text/event-stream" \
-      -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"0.1"}}}'
-    ```
-
-1. To stop the containers:
-
-    ```bash
-    # bash/zsh
-    docker compose -f $REPOSITORY_ROOT/docker/docker-compose.yml down
-    ```
-
-    ```powershell
-    # PowerShell
-    docker compose -f $REPOSITORY_ROOT/docker/docker-compose.yml down
-    ```
-
-For domain + HTTPS setup (home server deployment), see [docs/setup-docker.md](docs/setup-docker.md).
+| Docker (HTTP + Caddy) | HTTP | [docs/setup-docker.md](docs/setup-docker.md) |
+| OAuth (public access) | — | [docs/setup-oauth.md](docs/setup-oauth.md) |

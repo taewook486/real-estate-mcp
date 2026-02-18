@@ -12,27 +12,7 @@ This page describes how to connect the real estate MCP server to [Claude.ai](htt
 
 ## Server Setup
 
-If you deployed with Docker, ensure the following are set in your `.env`:
-
-```env
-AUTH_MODE=oauth
-OAUTH_CLIENT_ID=your_client_id_here
-OAUTH_CLIENT_SECRET=your_client_secret_here
-PUBLIC_BASE_URL=https://your-domain.ddns.net
-```
-
-Generate credentials:
-
-```bash
-openssl rand -hex 16   # for OAUTH_CLIENT_ID
-openssl rand -hex 16   # for OAUTH_CLIENT_SECRET
-```
-
-Rebuild and restart:
-
-```bash
-docker compose -f docker/docker-compose.yml up -d --build
-```
+Enable OAuth with the **client credentials** option in [setup-oauth.md](setup-oauth.md#client-credentials).
 
 ## Verify Before Connecting
 
@@ -96,7 +76,7 @@ Once all three checks pass:
 
 ## Project Instructions (Optional)
 
-For better responses, create a **Project** in Claude.ai and paste the contents of [prompt.custom-instructions-ko.md](prompt.custom-instructions-ko.md) into the **Project Instructions** tab.
+For better responses, create a **Project** in Claude.ai and paste the contents of [resources/custom-instructions-ko.md](../resources/custom-instructions-ko.md) into the **Project Instructions** tab.
 
 ## Remove
 

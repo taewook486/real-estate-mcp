@@ -49,7 +49,7 @@ The server runs as a child process of Codex CLI. No separate server process is n
     codex mcp get real-estate
     ```
 
-1. For better responses in Codex CLI, create an `AGENTS.md` file in your working project root and paste [prompt.custom-instructions-ko.md](prompt.custom-instructions-ko.md) into it.
+1. For better responses in Codex CLI, create an `AGENTS.md` file in your working project root and paste [resources/custom-instructions-ko.md](../resources/custom-instructions-ko.md) into it.
 
    > In Codex CLI, use `AGENTS.md` (project root) instead of Claude Desktop's **Project Instructions** tab.
 

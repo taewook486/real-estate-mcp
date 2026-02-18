@@ -61,7 +61,7 @@ The server runs as a child process of Claude Desktop. No separate server process
 1. Restart Claude Desktop.
    Setup is complete when you can see the `real-estate` server in the tool list.
 
-1. For better responses, create a **Project** in Claude Desktop and paste [prompt.custom-instructions-ko.md](prompt.custom-instructions-ko.md) into the **Project Instructions** tab.
+1. For better responses, create a **Project** in Claude Desktop and paste [resources/custom-instructions-ko.md](../resources/custom-instructions-ko.md) into the **Project Instructions** tab.
 
    > Paste it into the **Project Instructions** tab, not the chat input.
 
