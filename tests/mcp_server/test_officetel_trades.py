@@ -165,7 +165,7 @@ class TestGetOfficetelTools:
         """No-data response returns api_error for trade tool."""
         respx.get(_TRADE_URL).mock(return_value=Response(200, text=_XML_NO_DATA))
 
-        result = await get_officetel_trades("11440", "200001")
+        result = await get_officetel_trades("11440", "200601")
 
         assert result["error"] == "api_error"
 

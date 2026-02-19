@@ -164,7 +164,7 @@ class TestGetApartmentRent:
         """A no-data response returns an error dict."""
         respx.get(_API_URL).mock(return_value=Response(200, text=_XML_NO_DATA))
 
-        result = await get_apartment_rent("11440", "200001")
+        result = await get_apartment_rent("11440", "200601")
 
         assert result["error"] == "api_error"
         assert result["code"] == "03"

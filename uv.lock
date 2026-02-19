@@ -1515,6 +1515,8 @@ dependencies = [
     { name = "python-jose", extra = ["cryptography"] },
     { name = "python-multipart" },
     { name = "streamlit" },
+    { name = "structlog" },
+    { name = "tenacity" },
     { name = "uvicorn" },
 ]
 
@@ -1529,6 +1531,7 @@ dev = [
     { name = "pytest-cov" },
     { name = "respx" },
     { name = "ruff" },
+    { name = "tenacity" },
 ]
 
 [package.metadata]
@@ -1544,6 +1547,8 @@ requires-dist = [
     { name = "python-jose", extras = ["cryptography"], specifier = ">=3.5.0" },
     { name = "python-multipart", specifier = ">=0.0.22" },
     { name = "streamlit", specifier = ">=1.40.0" },
+    { name = "structlog", specifier = ">=25.5.0" },
+    { name = "tenacity", specifier = ">=9.1.2" },
     { name = "uvicorn", specifier = ">=0.40.0" },
 ]
 
@@ -1558,6 +1563,7 @@ dev = [
     { name = "pytest-cov", specifier = ">=6.0.0" },
     { name = "respx", specifier = ">=0.22.0" },
     { name = "ruff", specifier = ">=0.14.14" },
+    { name = "tenacity", specifier = ">=9.1.2" },
 ]
 
 [[package]]
@@ -1831,6 +1837,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/31/cc/347730d06e3950e426bf2ee06eaf9b281e18387bffa82bd69aa0f281eee3/streamlit-1.53.1.tar.gz", hash = "sha256:ae656af3b68b4bb2d669fa977606096f2021bcbaa14a454a290f8e0a37bab277", size = 8650843, upload-time = "2026-01-22T21:39:04.087Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/23/c3/5e6f6a9328d57436b658447b6f05969d435df8d31344e34ec75c3044657b/streamlit-1.53.1-py3-none-any.whl", hash = "sha256:9534d151feea485b69200dd36448f95f418c511e8c81186ceb57133bdf1443f7", size = 9111505, upload-time = "2026-01-22T21:39:01.344Z" },
+]
+
+[[package]]
+name = "structlog"
+version = "25.5.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ef/52/9ba0f43b686e7f3ddfeaa78ac3af750292662284b3661e91ad5494f21dbc/structlog-25.5.0.tar.gz", hash = "sha256:098522a3bebed9153d4570c6d0288abf80a031dfdb2048d59a49e9dc2190fc98", size = 1460830, upload-time = "2025-10-27T08:28:23.028Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a8/45/a132b9074aa18e799b891b91ad72133c98d8042c70f6240e4c5f9dabee2f/structlog-25.5.0-py3-none-any.whl", hash = "sha256:a8453e9b9e636ec59bd9e79bbd4a72f025981b3ba0f5837aebf48f02f37a7f9f", size = 72510, upload-time = "2025-10-27T08:28:21.535Z" },
 ]
 
 [[package]]

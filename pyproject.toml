@@ -25,6 +25,8 @@ dependencies = [
     "pillow>=12.1.1",
     "python-multipart>=0.0.22",
     "python-jose[cryptography]>=3.5.0",
+    "tenacity>=9.1.2",
+    "structlog>=25.5.0",
 ]
 
 [project.scripts]
@@ -48,6 +50,7 @@ dev = [
     "pytest-cov>=6.0.0",
     "respx>=0.22.0",
     "ruff>=0.14.14",
+    "tenacity>=9.1.2",
 ]
 
 [tool.bandit]
