@@ -1,15 +1,36 @@
-"""Shared helpers, URL constants, and tool runners for the MCP server."""
+"""Shared helpers, URL constants, and tool runners for the MCP server.
+
+This module provides:
+- Network resilience: exponential backoff retry, circuit breaker pattern
+- Structured logging: JSON-formatted logs with request tracking
+- Connection monitoring: response time tracking and degradation alerts
+"""
 
 from __future__ import annotations
 
 import os
 import statistics
+import time
 import urllib.parse
+from dataclasses import dataclass, field
+from enum import Enum
+from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import httpx
+import structlog
 from defusedxml.ElementTree import ParseError as XmlParseError
 from defusedxml.ElementTree import fromstring as xml_fromstring
+from tenacity import (
+    AsyncRetrying,
+    RetryError,
+    stop_after_attempt,
+    wait_exponential,
+)
+
+# Configure structured logging
+logger = structlog.get_logger()
 
 # ---------------------------------------------------------------------------
 # API base URLs
@@ -59,6 +80,142 @@ _ERROR_MESSAGES: dict[str, str] = {
 }
 
 # ---------------------------------------------------------------------------
+# Network resilience configuration
+# ---------------------------------------------------------------------------
+
+# Retry configuration: max 3 attempts, exponential backoff (1s, 2s, 4s), max 8s
+_RETRY_MAX_ATTEMPTS = 3
+_RETRY_INITIAL_DELAY = 1.0  # seconds
+_RETRY_MAX_DELAY = 8.0  # seconds
+
+# Circuit breaker configuration: 5 failures trigger open, 30s recovery
+_CIRCUIT_BREAKER_FAILURE_THRESHOLD = 5
+_CIRCUIT_BREAKER_RECOVERY_TIMEOUT = 30.0  # seconds
+
+# Connection quality threshold for logging
+_SLOW_RESPONSE_THRESHOLD = 10.0  # seconds
+
+# HTTP timeout configuration
+_CONNECTION_TIMEOUT = 5.0  # seconds
+_READ_TIMEOUT = 15.0  # seconds
+
+
+class CircuitState(Enum):
+    """Circuit breaker states."""
+
+    CLOSED = "closed"  # Normal operation
+    OPEN = "open"  # Failing, reject requests
+    HALF_OPEN = "half_open"  # Testing recovery
+
+
+@dataclass
+class CircuitBreaker:
+    """Circuit breaker implementation for network resilience.
+
+    Tracks failures and opens the circuit after threshold is reached.
+    After recovery timeout, allows a test request (half-open state).
+    """
+
+    failure_threshold: int = _CIRCUIT_BREAKER_FAILURE_THRESHOLD
+    recovery_timeout: float = _CIRCUIT_BREAKER_RECOVERY_TIMEOUT
+    _failure_count: int = field(default=0, repr=False)
+    _last_failure_time: float | None = field(default=None, repr=False)
+    _state: CircuitState = field(default=CircuitState.CLOSED, repr=False)
+    _last_notification_time: float | None = field(default=None, repr=False)
+
+    def can_execute(self) -> tuple[bool, dict[str, Any] | None]:
+        """Check if request can proceed.
+
+        Returns:
+            Tuple of (can_proceed, error_dict_if_blocked)
+        """
+        if self._state == CircuitState.CLOSED:
+            return True, None
+
+        if self._state == CircuitState.OPEN:
+            # Check if recovery timeout has passed
+            if self._last_failure_time is not None:
+                elapsed = time.time() - self._last_failure_time
+                if elapsed >= self.recovery_timeout:
+                    self._state = CircuitState.HALF_OPEN
+                    logger.info(
+                        "circuit_breaker_half_open",
+                        failure_count=self._failure_count,
+                        recovery_timeout=self.recovery_timeout,
+                    )
+                    return True, None
+
+            # Still in cooldown, notify user (at most once per 10 seconds)
+            now = time.time()
+            if self._last_notification_time is None or now - self._last_notification_time >= 10.0:
+                self._last_notification_time = now
+                logger.warning(
+                    "circuit_breaker_open_user_notification",
+                    message="API requests temporarily blocked due to repeated failures",
+                    recovery_in_seconds=int(
+                        self.recovery_timeout - (now - (self._last_failure_time or now))
+                    ),
+                )
+
+            return False, {
+                "error": "circuit_breaker_open",
+                "message": (
+                    "API requests are temporarily blocked due to repeated failures. "
+                    "Please try again in a few moments."
+                ),
+            }
+
+        # HALF_OPEN: allow one test request
+        return True, None
+
+    def record_success(self) -> None:
+        """Record successful request, reset circuit if in half-open."""
+        if self._state == CircuitState.HALF_OPEN:
+            logger.info(
+                "circuit_breaker_recovered",
+                previous_failures=self._failure_count,
+            )
+        self._failure_count = 0
+        self._state = CircuitState.CLOSED
+
+    def record_failure(self) -> None:
+        """Record failed request, potentially open circuit."""
+        self._failure_count += 1
+        self._last_failure_time = time.time()
+
+        if self._state == CircuitState.HALF_OPEN:
+            # Test request failed, open circuit again
+            self._state = CircuitState.OPEN
+            logger.warning(
+                "circuit_breaker_reopened",
+                failure_count=self._failure_count,
+            )
+        elif self._failure_count >= self.failure_threshold:
+            self._state = CircuitState.OPEN
+            logger.warning(
+                "circuit_breaker_opened",
+                failure_count=self._failure_count,
+                threshold=self.failure_threshold,
+                recovery_timeout=self.recovery_timeout,
+            )
+
+    @property
+    def state(self) -> CircuitState:
+        """Current circuit breaker state."""
+        return self._state
+
+
+# Global circuit breaker instance for MOLIT API
+_molit_circuit_breaker = CircuitBreaker()
+
+
+def _reset_circuit_breaker() -> None:
+    """Reset the circuit breaker (for testing)."""
+    global _molit_circuit_breaker
+    _molit_circuit_breaker = CircuitBreaker()
+
+
+# ---------------------------------------------------------------------------
 # URL builders
 # ---------------------------------------------------------------------------
 
@@ -84,49 +241,353 @@ def _build_url(base: str, region_code: str, year_month: str, num_of_rows: int) -
 
 
 # ---------------------------------------------------------------------------
-# HTTP helpers
+# HTTP helpers with network resilience
 # ---------------------------------------------------------------------------
 
 
 async def _fetch_xml(url: str) -> tuple[str | None, dict[str, Any] | None]:
-    """Perform an async HTTP GET and return the response body or an error dict."""
-    try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
+    """Perform an async HTTP GET with retry and circuit breaker, return XML or error.
+
+    Features:
+    - Exponential backoff retry (max 3 attempts, 1s-8s delays)
+    - Circuit breaker (opens after 5 failures, 30s recovery)
+    - Connection quality monitoring (logs slow responses >10s)
+    - Structured JSON logging for requests and errors
+
+    Args:
+        url: The URL to fetch
+
+    Returns:
+        Tuple of (xml_text, None) on success or (None, error_dict) on failure
+    """
+    # Check circuit breaker
+    can_proceed, block_error = _molit_circuit_breaker.can_execute()
+    if not can_proceed:
+        return None, block_error
+
+    request_id = str(uuid4())[:8]
+    start_time = time.time()
+
+    async def _do_fetch() -> str:
+        """Internal fetch function for retry logic."""
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(_CONNECTION_TIMEOUT, read=_READ_TIMEOUT)
+        ) as client:
             response = await client.get(url)
             response.raise_for_status()
-            return response.text, None
+            return response.text
+
+    try:
+        # Use tenacity for exponential backoff retry
+        async for attempt in AsyncRetrying(
+            stop=stop_after_attempt(_RETRY_MAX_ATTEMPTS),
+            wait=wait_exponential(
+                multiplier=_RETRY_INITIAL_DELAY,
+                min=_RETRY_INITIAL_DELAY,
+                max=_RETRY_MAX_DELAY,
+            ),
+            reraise=True,
+        ):
+            with attempt:
+                logger.debug(
+                    "http_request_start",
+                    request_id=request_id,
+                    url=url,
+                    attempt=attempt.retry_state.attempt_number,
+                )
+                try:
+                    xml_text = await _do_fetch()
+                    duration_ms = (time.time() - start_time) * 1000
+
+                    # Log slow responses
+                    if duration_ms > _SLOW_RESPONSE_THRESHOLD * 1000:
+                        logger.warning(
+                            "connection_quality_degradation",
+                            request_id=request_id,
+                            url=url,
+                            duration_ms=duration_ms,
+                            threshold_ms=_SLOW_RESPONSE_THRESHOLD * 1000,
+                        )
+
+                    logger.info(
+                        "http_request_success",
+                        request_id=request_id,
+                        url=url,
+                        duration_ms=duration_ms,
+                        status="success",
+                    )
+
+                    _molit_circuit_breaker.record_success()
+                    return xml_text, None
+
+                except httpx.TimeoutException as exc:
+                    duration_ms = (time.time() - start_time) * 1000
+                    logger.warning(
+                        "http_request_timeout",
+                        request_id=request_id,
+                        url=url,
+                        attempt=attempt.retry_state.attempt_number,
+                        duration_ms=duration_ms,
+                        error=str(exc),
+                    )
+                    raise
+
+    except RetryError:
+        # All retries exhausted
+        duration_ms = (time.time() - start_time) * 1000
+        _molit_circuit_breaker.record_failure()
+
+        logger.error(
+            "http_request_retry_exhausted",
+            request_id=request_id,
+            url=url,
+            duration_ms=duration_ms,
+            circuit_breaker_state=_molit_circuit_breaker.state.value,
+        )
+
+        return None, {
+            "error": "network_error",
+            "message": (
+                f"API server timed out after {_RETRY_MAX_ATTEMPTS} attempts. "
+                "Please try again later."
+            ),
+        }
+
     except httpx.TimeoutException:
-        return None, {"error": "network_error", "message": "API server timed out (15s)"}
+        # Timeout after retries exhausted (when not caught by RetryError)
+        duration_ms = (time.time() - start_time) * 1000
+        _molit_circuit_breaker.record_failure()
+
+        logger.error(
+            "http_request_timeout_exhausted",
+            request_id=request_id,
+            url=url,
+            duration_ms=duration_ms,
+        )
+
+        return None, {
+            "error": "network_error",
+            "message": (
+                f"API server timed out after {_RETRY_MAX_ATTEMPTS} attempts. "
+                "Please try again later."
+            ),
+        }
+
     except httpx.HTTPStatusError as exc:
+        duration_ms = (time.time() - start_time) * 1000
+        _molit_circuit_breaker.record_failure()
+
+        logger.error(
+            "http_request_http_error",
+            request_id=request_id,
+            url=url,
+            status_code=exc.response.status_code,
+            duration_ms=duration_ms,
+        )
+
         return None, {
             "error": "network_error",
             "message": f"HTTP error: {exc.response.status_code}",
         }
+
     except httpx.RequestError as exc:
+        duration_ms = (time.time() - start_time) * 1000
+        _molit_circuit_breaker.record_failure()
+
+        logger.error(
+            "http_request_network_error",
+            request_id=request_id,
+            url=url,
+            error=str(exc),
+            duration_ms=duration_ms,
+        )
+
         return None, {"error": "network_error", "message": f"Network error: {exc}"}
+
+    # This should never be reached as all paths return, but satisfies type checker
+    return None, {"error": "unknown_error", "message": "Unexpected error in fetch logic"}
 
 
 async def _fetch_json(
     url: str,
     headers: dict[str, str] | None = None,
 ) -> tuple[dict[str, Any] | list[Any] | None, dict[str, Any] | None]:
-    """Perform an async HTTP GET and return decoded JSON or an error dict."""
-    try:
-        async with httpx.AsyncClient(timeout=15.0, headers=headers) as client:
+    """Perform an async HTTP GET with retry and circuit breaker, return JSON or error.
+
+    Features:
+    - Exponential backoff retry (max 3 attempts, 1s-8s delays)
+    - Circuit breaker (opens after 5 failures, 30s recovery)
+    - Connection quality monitoring (logs slow responses >10s)
+    - Structured JSON logging for requests and errors
+
+    Args:
+        url: The URL to fetch
+        headers: Optional HTTP headers
+
+    Returns:
+        Tuple of (json_data, None) on success or (None, error_dict) on failure
+    """
+    # Check circuit breaker
+    can_proceed, block_error = _molit_circuit_breaker.can_execute()
+    if not can_proceed:
+        return None, block_error
+
+    request_id = str(uuid4())[:8]
+    start_time = time.time()
+
+    async def _do_fetch() -> dict[str, Any] | list[Any]:
+        """Internal fetch function for retry logic."""
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(_CONNECTION_TIMEOUT, read=_READ_TIMEOUT),
+            headers=headers,
+        ) as client:
             response = await client.get(url)
             response.raise_for_status()
-            return response.json(), None
+            return response.json()
+
+    try:
+        # Use tenacity for exponential backoff retry
+        async for attempt in AsyncRetrying(
+            stop=stop_after_attempt(_RETRY_MAX_ATTEMPTS),
+            wait=wait_exponential(
+                multiplier=_RETRY_INITIAL_DELAY,
+                min=_RETRY_INITIAL_DELAY,
+                max=_RETRY_MAX_DELAY,
+            ),
+            reraise=True,
+        ):
+            with attempt:
+                logger.debug(
+                    "http_request_start",
+                    request_id=request_id,
+                    url=url,
+                    attempt=attempt.retry_state.attempt_number,
+                )
+                try:
+                    json_data = await _do_fetch()
+                    duration_ms = (time.time() - start_time) * 1000
+
+                    # Log slow responses
+                    if duration_ms > _SLOW_RESPONSE_THRESHOLD * 1000:
+                        logger.warning(
+                            "connection_quality_degradation",
+                            request_id=request_id,
+                            url=url,
+                            duration_ms=duration_ms,
+                            threshold_ms=_SLOW_RESPONSE_THRESHOLD * 1000,
+                        )
+
+                    logger.info(
+                        "http_request_success",
+                        request_id=request_id,
+                        url=url,
+                        duration_ms=duration_ms,
+                        status="success",
+                    )
+
+                    _molit_circuit_breaker.record_success()
+                    return json_data, None
+
+                except httpx.TimeoutException as exc:
+                    duration_ms = (time.time() - start_time) * 1000
+                    logger.warning(
+                        "http_request_timeout",
+                        request_id=request_id,
+                        url=url,
+                        attempt=attempt.retry_state.attempt_number,
+                        duration_ms=duration_ms,
+                        error=str(exc),
+                    )
+                    raise
+
+    except RetryError:
+        # All retries exhausted
+        duration_ms = (time.time() - start_time) * 1000
+        _molit_circuit_breaker.record_failure()
+
+        logger.error(
+            "http_request_retry_exhausted",
+            request_id=request_id,
+            url=url,
+            duration_ms=duration_ms,
+            circuit_breaker_state=_molit_circuit_breaker.state.value,
+        )
+
+        return None, {
+            "error": "network_error",
+            "message": (
+                f"API server timed out after {_RETRY_MAX_ATTEMPTS} attempts. "
+                "Please try again later."
+            ),
+        }
+
     except httpx.TimeoutException:
-        return None, {"error": "network_error", "message": "API server timed out (15s)"}
+        # Timeout after retries exhausted (when not caught by RetryError)
+        duration_ms = (time.time() - start_time) * 1000
+        _molit_circuit_breaker.record_failure()
+
+        logger.error(
+            "http_request_timeout_exhausted",
+            request_id=request_id,
+            url=url,
+            duration_ms=duration_ms,
+        )
+
+        return None, {
+            "error": "network_error",
+            "message": (
+                f"API server timed out after {_RETRY_MAX_ATTEMPTS} attempts. "
+                "Please try again later."
+            ),
+        }
+
     except httpx.HTTPStatusError as exc:
+        duration_ms = (time.time() - start_time) * 1000
+        _molit_circuit_breaker.record_failure()
+
+        logger.error(
+            "http_request_http_error",
+            request_id=request_id,
+            url=url,
+            status_code=exc.response.status_code,
+            duration_ms=duration_ms,
+        )
+
         return None, {
             "error": "network_error",
             "message": f"HTTP error: {exc.response.status_code}",
         }
+
     except ValueError as exc:
+        # JSON parse error - don't count against circuit breaker
+        duration_ms = (time.time() - start_time) * 1000
+
+        logger.error(
+            "json_parse_error",
+            request_id=request_id,
+            url=url,
+            error=str(exc),
+            duration_ms=duration_ms,
+        )
+
         return None, {"error": "parse_error", "message": f"JSON parse failed: {exc}"}
+
     except httpx.RequestError as exc:
+        duration_ms = (time.time() - start_time) * 1000
+        _molit_circuit_breaker.record_failure()
+
+        logger.error(
+            "http_request_network_error",
+            request_id=request_id,
+            url=url,
+            error=str(exc),
+            duration_ms=duration_ms,
+        )
+
         return None, {"error": "network_error", "message": f"Network error: {exc}"}
+
+    # This should never be reached as all paths return, but satisfies type checker
+    return None, {"error": "unknown_error", "message": "Unexpected error in fetch logic"}
 
 
 # ---------------------------------------------------------------------------
@@ -186,6 +647,184 @@ def _check_odcloud_key() -> dict[str, Any] | None:
             ),
         }
     return None
+
+
+# ---------------------------------------------------------------------------
+# Input validation helpers
+# ---------------------------------------------------------------------------
+
+# Path to region codes file
+_REGION_CODES_FILE = Path(__file__).parent.parent / "resources" / "region_codes.txt"
+
+# Cache for valid region codes (5-digit API codes)
+_valid_lawd_codes_cache: set[str] | None = None
+
+
+def _load_valid_lawd_codes() -> set[str]:
+    """Load and cache valid 5-digit LAWD codes from region_codes.txt."""
+    global _valid_lawd_codes_cache
+
+    if _valid_lawd_codes_cache is not None:
+        return _valid_lawd_codes_cache
+
+    codes: set[str] = set()
+    try:
+        with _REGION_CODES_FILE.open(encoding="utf-8") as f:
+            next(f)  # skip header
+            for line in f:
+                parts = line.rstrip("\n").split("\t")
+                if len(parts) < 3:
+                    continue
+                code, _, status = parts[0], parts[1], parts[2]
+                if status == "존재":
+                    # Extract 5-digit API code
+                    codes.add(code[:5])
+    except FileNotFoundError:
+        logger.warning(
+            "region_codes_file_not_found",
+            path=str(_REGION_CODES_FILE),
+        )
+
+    _valid_lawd_codes_cache = codes
+    return codes
+
+
+def validate_lawd_code(code: str) -> tuple[bool, dict[str, Any] | None]:
+    """Validate a 5-digit LAWD code against the region codes file.
+
+    Args:
+        code: The 5-digit region code to validate
+
+    Returns:
+        Tuple of (is_valid, error_dict_if_invalid)
+    """
+    if not code:
+        return False, {
+            "error": "invalid_input",
+            "message": "Region code must not be empty. Example: '11440' (Mapo-gu)",
+        }
+
+    if not code.isdigit() or len(code) != 5:
+        return False, {
+            "error": "invalid_input",
+            "message": (
+                f"Region code must be a 5-digit number. Got: '{code}'. Example: '11440' (Mapo-gu)"
+            ),
+        }
+
+    valid_codes = _load_valid_lawd_codes()
+    if code not in valid_codes:
+        return False, {
+            "error": "invalid_input",
+            "message": (
+                f"Region code '{code}' is not a valid legal district code. "
+                "Use get_region_code tool to find the correct code."
+            ),
+        }
+
+    return True, None
+
+
+def validate_deal_ymd(ymd: str) -> tuple[bool, dict[str, Any] | None]:
+    """Validate a date in YYYYMM format.
+
+    Valid range: 2006-01 to current month (API data starts from January 2006).
+
+    Args:
+        ymd: The year-month string to validate
+
+    Returns:
+        Tuple of (is_valid, error_dict_if_invalid)
+    """
+    from datetime import datetime
+
+    if not ymd:
+        return False, {
+            "error": "invalid_input",
+            "message": "Year-month must not be empty. Example: '202501' (January 2025)",
+        }
+
+    if len(ymd) != 6 or not ymd.isdigit():
+        return False, {
+            "error": "invalid_input",
+            "message": (
+                f"Year-month must be in YYYYMM format. Got: '{ymd}'. "
+                "Example: '202501' (January 2025)"
+            ),
+        }
+
+    year = int(ymd[:4])
+    month = int(ymd[4:])
+
+    if month < 1 or month > 12:
+        return False, {
+            "error": "invalid_input",
+            "message": (
+                f"Month must be between 01 and 12. Got: '{month:02d}'. "
+                "Example: '202501' (January 2025)"
+            ),
+        }
+
+    # API data starts from January 2006
+    min_year = 2006
+    min_month = 1
+
+    # Get current date for upper bound
+    now = datetime.now()
+    max_year = now.year
+    max_month = now.month
+
+    # Convert to comparable values
+    input_val = year * 100 + month
+    min_val = min_year * 100 + min_month
+    max_val = max_year * 100 + max_month
+
+    if input_val < min_val:
+        return False, {
+            "error": "invalid_input",
+            "message": (
+                f"Year-month must be 2006-01 or later. Got: '{ymd}'. "
+                "The API provides data starting from January 2006."
+            ),
+        }
+
+    if input_val > max_val:
+        return False, {
+            "error": "invalid_input",
+            "message": (
+                f"Year-month cannot be in the future. Got: '{ymd}'. "
+                f"Current period: {max_year}{max_month:02d}"
+            ),
+        }
+
+    return True, None
+
+
+def validate_pagination(num_of_rows: int) -> tuple[bool, dict[str, Any] | None]:
+    """Validate pagination parameters.
+
+    Args:
+        num_of_rows: Number of rows per page
+
+    Returns:
+        Tuple of (is_valid, error_dict_if_invalid)
+    """
+    if num_of_rows < 1:
+        return False, {
+            "error": "invalid_input",
+            "message": (f"num_of_rows must be at least 1. Got: {num_of_rows}. Example: 100"),
+        }
+
+    if num_of_rows > 1000:
+        return False, {
+            "error": "invalid_input",
+            "message": (
+                f"num_of_rows cannot exceed 1000. Got: {num_of_rows}. "
+                "Use multiple requests for more data."
+            ),
+        }
+
+    return True, None
 
 
 # ---------------------------------------------------------------------------
@@ -355,7 +994,28 @@ async def _run_molit_xml_tool(
     num_of_rows: int,
     summary_builder: Any,
 ) -> dict[str, Any]:
-    """Shared execution flow for MOLIT trade/rent XML tools."""
+    """Shared execution flow for MOLIT trade/rent XML tools.
+
+    Includes input validation to prevent API calls with invalid parameters.
+    """
+    # Input validation - check region code
+    valid, validation_err = validate_lawd_code(region_code)
+    if not valid:
+        assert validation_err is not None
+        return validation_err
+
+    # Input validation - check year-month
+    valid, validation_err = validate_deal_ymd(year_month)
+    if not valid:
+        assert validation_err is not None
+        return validation_err
+
+    # Input validation - check pagination
+    valid, validation_err = validate_pagination(num_of_rows)
+    if not valid:
+        assert validation_err is not None
+        return validation_err
+
     err = _check_api_key()
     if err:
         return err

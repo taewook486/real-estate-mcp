@@ -328,7 +328,7 @@ class TestVillaSingleHouseTools:
         """No-data response returns api_error."""
         respx.get(_VILLA_URL).mock(return_value=Response(200, text=_XML_NO_DATA))
 
-        result = await get_villa_trades("11440", "200001")
+        result = await get_villa_trades("11440", "200601")
 
         assert result["error"] == "api_error"
 

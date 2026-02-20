@@ -83,3 +83,59 @@ class TestSearchRegionCodeEdgeCases:
         assert result["error"] == "no_match"
         assert "message" in result
         assert "없는지역XYZ" in result["message"]
+
+
+class TestRegionCache:
+    """Tests for region code caching functionality."""
+
+    def test_cache_is_populated_after_first_call(self) -> None:
+        """Cache is populated after first search_region_code call."""
+        from real_estate.mcp_server._region import (
+            _reset_region_cache,
+        )
+
+        # Reset cache first
+        _reset_region_cache()
+
+        # First call should populate cache
+        result = search_region_code("마포구")
+        assert "region_code" in result
+
+        # Cache should now be populated
+        import real_estate.mcp_server._region as region_module
+
+        assert region_module._region_rows_cache is not None
+        assert len(region_module._region_rows_cache) > 0
+
+    def test_cache_is_reused_on_subsequent_calls(self) -> None:
+        """Cache is reused on subsequent calls."""
+        import real_estate.mcp_server._region as region_module
+
+        # Get initial cache state
+        region_module._reset_region_cache()
+
+        # First call populates cache
+        search_region_code("강남구")
+        first_cache_time = region_module._cache_load_time
+
+        # Second call should reuse cache
+        search_region_code("서초구")
+        second_cache_time = region_module._cache_load_time
+
+        # Cache load time should not change
+        assert first_cache_time == second_cache_time
+
+    def test_reset_cache_clears_cache(self) -> None:
+        """Reset cache clears the cached data."""
+        import real_estate.mcp_server._region as region_module
+
+        # Populate cache
+        search_region_code("마포구")
+        assert region_module._region_rows_cache is not None
+
+        # Reset cache
+        region_module._reset_region_cache()
+
+        # Cache should be None
+        assert region_module._region_rows_cache is None
+        assert region_module._cache_load_time is None

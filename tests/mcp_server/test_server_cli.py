@@ -11,6 +11,7 @@ def test_main_http_defaults_to_localhost(monkeypatch: Any) -> None:
 
     # Mock uvicorn.run to prevent actual server startup (must patch at module level)
     import uvicorn
+
     monkeypatch.setattr(uvicorn, "run", lambda *args, **kwargs: None)
 
     server.main()
