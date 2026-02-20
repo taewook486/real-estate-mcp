@@ -51,12 +51,43 @@
 
 1. Claude Desktop 설정 파일을 여세요.
 
+    **Windows**:
+    ```bash
+    notepad %APPDATA%\Claude\claude_desktop_config.json
+    ```
+
+    **macOS**:
     ```bash
     open "$HOME/Library/Application Support/Claude/claude_desktop_config.json"
     ```
 
+    **Linux**:
+    ```bash
+    nano ~/.config/Claude/claude_desktop_config.json
+    ```
+
 1. `mcpServers`에 아래 항목을 추가하세요.
 
+    **Windows**:
+    ```json
+    {
+      "mcpServers": {
+        "real-estate": {
+          "command": "uv",
+          "args": [
+            "run",
+            "--directory", "C:\\path\\to\\real-estate-mcp",
+            "python", "src/real_estate/mcp_server/server.py"
+          ],
+          "env": {
+            "DATA_GO_KR_API_KEY": "your_api_key_here"
+          }
+        }
+      }
+    }
+    ```
+
+    **macOS/Linux**:
     ```json
     {
       "mcpServers": {
@@ -74,6 +105,8 @@
       }
     }
     ```
+
+    > **참고**: `--directory` 경로를 실제 프로젝트 위치로 변경하세요. Windows에서는 백슬래시(`\\`)를 사용하거나 슬래시(`/`)를 사용해도 됩니다.
 
 1. Claude Desktop을 재시작하세요. 도구 목록에 `real-estate` 서버가 표시되면 완료입니다.
 
