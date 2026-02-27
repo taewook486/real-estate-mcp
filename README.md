@@ -18,6 +18,26 @@ Provides 14+ tools for querying apartment, officetel, villa, single-house, and c
 - [x] Onbid code / address lookup (`get_onbid_*_code_info`, `get_onbid_addr*_info`)
 - [x] Region code lookup (`get_region_code`)
 
+## New Features (v1.1.0)
+
+### Network Reliability
+- **Exponential Backoff Retry**: 최대 3회 재시도, 초기 1초/최대 8초 지연
+- **Circuit Breaker**: 연속 5회 실패 시 일시적 호출 차단 (30초 대기)
+- **Connection Quality Logging**: 10초 초과 응답 시 자동 로깅
+
+### Configuration Management
+- **Centralized Validation**: Pydantic Settings 기반 환경 변수 관리
+- **Fail-fast**: 시작 시점에서 모든 필수 환경 변수 검증
+- **Clear Error Messages**: 변수명, 설명, 설정 방법 포함된 상세 오류 안내
+
+### Standardized Error Handling
+- **6 Error Types**: config_error, invalid_input, network_error, api_error, parse_error, internal_error
+- **User-Friendly Suggestions**: 각 오류 유형별 해결 제안 제공
+
+### Performance Optimization
+- **API Response Caching**: 5분 TTL, 최대 100개 항목 메모리 캐시
+- **Input Validation**: 지역코드/날짜 형식 사전 검증으로 불필요한 API 호출 감소
+
 ## Prerequisites
 
 - [uv](https://docs.astral.sh/uv/getting-started/installation/)

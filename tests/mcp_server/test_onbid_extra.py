@@ -145,7 +145,7 @@ class TestGetPublicAuctionItemDetail:
 
     async def test_missing_required_fields_return_validation_error(self) -> None:
         result = await get_public_auction_item_detail("", "")
-        assert result["error"] == "validation_error"
+        assert result["error"] == "invalid_input"
 
 
 class TestGetOnbidThingInfoList:

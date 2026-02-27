@@ -29,6 +29,16 @@ from tenacity import (
     wait_exponential,
 )
 
+from real_estate.mcp_server.error_types import (
+    ErrorType,
+    ErrorResponse,
+    make_api_error,
+    make_config_error,
+    make_invalid_input_error,
+    make_network_error,
+    make_parse_error,
+)
+
 # Configure structured logging
 logger = structlog.get_logger()
 
@@ -71,33 +81,50 @@ _ONBID_ADDR2_URL = f"{_ONBID_CODE_INFO_BASE_URL}/getOnbidAddr2Info"
 _ONBID_ADDR3_URL = f"{_ONBID_CODE_INFO_BASE_URL}/getOnbidAddr3Info"
 _ONBID_DTL_ADDR_URL = f"{_ONBID_CODE_INFO_BASE_URL}/getOnbidDtlAddrInfo"
 
+# @MX:NOTE: API error messages with user-friendly descriptions
+# REQ-IN-003: Error code "22" includes reset time information
 _ERROR_MESSAGES: dict[str, str] = {
     "03": "No trade records found for the specified region and period.",
     "10": "Invalid API request parameters.",
-    "22": "Daily API request limit exceeded.",
+    "22": "Daily API request limit exceeded. The limit resets at midnight (KST).",
     "30": "Unregistered API key.",
     "31": "API key has expired.",
+}
+
+# @MX:NOTE: User-friendly suggestions for each API error code
+# REQ-IN-005: Provide actionable suggestions for error resolution
+_ERROR_SUGGESTIONS: dict[str, str] = {
+    "03": "Try a different region code or date period. Use get_region_code to find valid codes.",
+    "10": "Check your request parameters and try again.",
+    "22": "Wait until midnight (KST) for the daily limit to reset, or use a different API key.",
+    "30": "Register your API key at https://www.data.go.kr and wait for approval.",
+    "31": "Renew your API key at https://www.data.go.kr.",
 }
 
 # ---------------------------------------------------------------------------
 # Network resilience configuration
 # ---------------------------------------------------------------------------
 
-# Retry configuration: max 3 attempts, exponential backoff (1s, 2s, 4s), max 8s
+# @MX:NOTE: Retry configuration for transient network failures
+# Uses exponential backoff: delays are 1s, 2s, 4s (capped at 8s)
+# REQ-NET-002: Exponential backoff retry mechanism
 _RETRY_MAX_ATTEMPTS = 3
-_RETRY_INITIAL_DELAY = 1.0  # seconds
-_RETRY_MAX_DELAY = 8.0  # seconds
+_RETRY_INITIAL_DELAY = 1.0  # seconds - initial delay before first retry
+_RETRY_MAX_DELAY = 8.0  # seconds - maximum delay cap
 
-# Circuit breaker configuration: 5 failures trigger open, 30s recovery
+# @MX:NOTE: Circuit breaker configuration for cascade failure prevention
+# REQ-NET-003: Circuit breaker pattern implementation
+# When 5 consecutive failures occur, circuit opens for 30 seconds
 _CIRCUIT_BREAKER_FAILURE_THRESHOLD = 5
-_CIRCUIT_BREAKER_RECOVERY_TIMEOUT = 30.0  # seconds
+_CIRCUIT_BREAKER_RECOVERY_TIMEOUT = 30.0  # seconds - time before attempting recovery
 
-# Connection quality threshold for logging
-_SLOW_RESPONSE_THRESHOLD = 10.0  # seconds
+# @MX:NOTE: Connection quality monitoring threshold
+# REQ-NET-005: Slow response logging for connection degradation detection
+_SLOW_RESPONSE_THRESHOLD = 10.0  # seconds - responses slower than this are logged as warnings
 
 # HTTP timeout configuration
-_CONNECTION_TIMEOUT = 5.0  # seconds
-_READ_TIMEOUT = 15.0  # seconds
+_CONNECTION_TIMEOUT = 5.0  # seconds - time to establish connection
+_READ_TIMEOUT = 15.0  # seconds - time to read response data
 
 
 class CircuitState(Enum):
@@ -112,8 +139,38 @@ class CircuitState(Enum):
 class CircuitBreaker:
     """Circuit breaker implementation for network resilience.
 
-    Tracks failures and opens the circuit after threshold is reached.
-    After recovery timeout, allows a test request (half-open state).
+    Implements the circuit breaker pattern to prevent cascade failures when
+    external API services are experiencing issues.
+
+    States:
+        CLOSED: Normal operation - all requests pass through
+        OPEN: Failing state - requests are blocked with error message
+        HALF_OPEN: Recovery testing - allows one test request to check if
+            the service has recovered
+
+    Behavior:
+        1. Starts in CLOSED state, allowing all requests
+        2. Each failure increments the failure count
+        3. When failure_count >= threshold, transitions to OPEN
+        4. In OPEN state, requests are blocked with user-friendly error
+        5. After recovery_timeout seconds, transitions to HALF_OPEN
+        6. In HALF_OPEN, one test request is allowed:
+           - On success: transitions to CLOSED, failure count reset
+           - On failure: transitions back to OPEN
+
+    Attributes:
+        failure_threshold: Number of failures before opening circuit
+        recovery_timeout: Seconds to wait before attempting recovery
+
+    Example:
+        >>> cb = CircuitBreaker(failure_threshold=5, recovery_timeout=30.0)
+        >>> can_proceed, error = cb.can_execute()
+        >>> if can_proceed:
+        ...     try:
+        ...         result = await fetch_data()
+        ...         cb.record_success()
+        ...     except Exception:
+        ...         cb.record_failure()
     """
 
     failure_threshold: int = _CIRCUIT_BREAKER_FAILURE_THRESHOLD
@@ -345,13 +402,9 @@ async def _fetch_xml(url: str) -> tuple[str | None, dict[str, Any] | None]:
             circuit_breaker_state=_molit_circuit_breaker.state.value,
         )
 
-        return None, {
-            "error": "network_error",
-            "message": (
-                f"API server timed out after {_RETRY_MAX_ATTEMPTS} attempts. "
-                "Please try again later."
-            ),
-        }
+        return None, make_network_error(
+            f"API server timed out after {_RETRY_MAX_ATTEMPTS} attempts"
+        )
 
     except httpx.TimeoutException:
         # Timeout after retries exhausted (when not caught by RetryError)
@@ -365,13 +418,9 @@ async def _fetch_xml(url: str) -> tuple[str | None, dict[str, Any] | None]:
             duration_ms=duration_ms,
         )
 
-        return None, {
-            "error": "network_error",
-            "message": (
-                f"API server timed out after {_RETRY_MAX_ATTEMPTS} attempts. "
-                "Please try again later."
-            ),
-        }
+        return None, make_network_error(
+            f"API server timed out after {_RETRY_MAX_ATTEMPTS} attempts"
+        )
 
     except httpx.HTTPStatusError as exc:
         duration_ms = (time.time() - start_time) * 1000
@@ -385,10 +434,7 @@ async def _fetch_xml(url: str) -> tuple[str | None, dict[str, Any] | None]:
             duration_ms=duration_ms,
         )
 
-        return None, {
-            "error": "network_error",
-            "message": f"HTTP error: {exc.response.status_code}",
-        }
+        return None, make_network_error(f"HTTP error: {exc.response.status_code}")
 
     except httpx.RequestError as exc:
         duration_ms = (time.time() - start_time) * 1000
@@ -402,10 +448,10 @@ async def _fetch_xml(url: str) -> tuple[str | None, dict[str, Any] | None]:
             duration_ms=duration_ms,
         )
 
-        return None, {"error": "network_error", "message": f"Network error: {exc}"}
+        return None, make_network_error(str(exc))
 
     # This should never be reached as all paths return, but satisfies type checker
-    return None, {"error": "unknown_error", "message": "Unexpected error in fetch logic"}
+    return None, make_network_error("Unexpected error in fetch logic")
 
 
 async def _fetch_json(
@@ -513,13 +559,9 @@ async def _fetch_json(
             circuit_breaker_state=_molit_circuit_breaker.state.value,
         )
 
-        return None, {
-            "error": "network_error",
-            "message": (
-                f"API server timed out after {_RETRY_MAX_ATTEMPTS} attempts. "
-                "Please try again later."
-            ),
-        }
+        return None, make_network_error(
+            f"API server timed out after {_RETRY_MAX_ATTEMPTS} attempts"
+        )
 
     except httpx.TimeoutException:
         # Timeout after retries exhausted (when not caught by RetryError)
@@ -533,13 +575,9 @@ async def _fetch_json(
             duration_ms=duration_ms,
         )
 
-        return None, {
-            "error": "network_error",
-            "message": (
-                f"API server timed out after {_RETRY_MAX_ATTEMPTS} attempts. "
-                "Please try again later."
-            ),
-        }
+        return None, make_network_error(
+            f"API server timed out after {_RETRY_MAX_ATTEMPTS} attempts"
+        )
 
     except httpx.HTTPStatusError as exc:
         duration_ms = (time.time() - start_time) * 1000
@@ -553,10 +591,7 @@ async def _fetch_json(
             duration_ms=duration_ms,
         )
 
-        return None, {
-            "error": "network_error",
-            "message": f"HTTP error: {exc.response.status_code}",
-        }
+        return None, make_network_error(f"HTTP error: {exc.response.status_code}")
 
     except ValueError as exc:
         # JSON parse error - don't count against circuit breaker
@@ -570,7 +605,7 @@ async def _fetch_json(
             duration_ms=duration_ms,
         )
 
-        return None, {"error": "parse_error", "message": f"JSON parse failed: {exc}"}
+        return None, make_parse_error("JSON", str(exc))
 
     except httpx.RequestError as exc:
         duration_ms = (time.time() - start_time) * 1000
@@ -584,68 +619,131 @@ async def _fetch_json(
             duration_ms=duration_ms,
         )
 
-        return None, {"error": "network_error", "message": f"Network error: {exc}"}
+        return None, make_network_error(str(exc))
 
     # This should never be reached as all paths return, but satisfies type checker
-    return None, {"error": "unknown_error", "message": "Unexpected error in fetch logic"}
+    return None, make_network_error("Unexpected error in fetch logic")
 
 
 # ---------------------------------------------------------------------------
 # API key helpers
 # ---------------------------------------------------------------------------
 
+# Lazy-loaded settings instance to avoid import-time validation errors
+_settings_instance: Any | None = None
+
+
+def _reset_settings_cache() -> None:
+    """Reset the settings cache (for testing).
+
+    This function is used to clear the cached AppSettings instance
+    so that subsequent calls will reload settings from environment.
+    """
+    global _settings_instance
+    _settings_instance = None
+
+
+def _get_settings_safe() -> Any | None:
+    """Get AppSettings instance, returning None if validation fails.
+
+    This function provides lazy loading of AppSettings to avoid
+    import-time validation errors. It catches ValidationError and
+    returns None, allowing _check_* functions to return error dicts.
+
+    Returns:
+        AppSettings instance if valid, None if validation fails.
+    """
+    global _settings_instance
+    if _settings_instance is not None:
+        return _settings_instance
+
+    from pydantic import ValidationError
+
+    from real_estate.config_validator import AppSettings
+
+    try:
+        # Create settings without reading .env file for test isolation
+        # This ensures only environment variables are used
+        _settings_instance = AppSettings(_env_file=None)  # type: ignore[call-arg]
+        return _settings_instance
+    except ValidationError:
+        return None
+
 
 def _check_api_key() -> dict[str, Any] | None:
     """Return an error dict if DATA_GO_KR_API_KEY is not set, else None."""
-    if not os.getenv("DATA_GO_KR_API_KEY", ""):
-        return {
-            "error": "config_error",
-            "message": "Environment variable DATA_GO_KR_API_KEY is not set.",
-        }
+    settings = _get_settings_safe()
+    if settings is None:
+        return make_config_error("DATA_GO_KR_API_KEY")
     return None
 
 
 def _get_data_go_kr_key_for_onbid() -> str:
     """Return the service key to use for Onbid APIs."""
-    return os.getenv("ONBID_API_KEY", "") or os.getenv("DATA_GO_KR_API_KEY", "")
+    settings = _get_settings_safe()
+    if settings is None:
+        # Fallback to direct environment variable read for backward compatibility
+        return os.getenv("ONBID_API_KEY", "") or os.getenv("DATA_GO_KR_API_KEY", "")
+    return settings.get_onbid_key()
 
 
 def _check_onbid_api_key() -> dict[str, Any] | None:
     """Return an error dict if Onbid API key is not set, else None."""
-    if not _get_data_go_kr_key_for_onbid():
-        return {
-            "error": "config_error",
-            "message": "Environment variable ONBID_API_KEY (or DATA_GO_KR_API_KEY) is not set.",
-        }
+    settings = _get_settings_safe()
+    if settings is None:
+        # Fallback to direct environment variable check for backward compatibility
+        # This preserves the original behavior where ONBID_API_KEY alone is sufficient
+        onbid_key = os.getenv("ONBID_API_KEY", "") or os.getenv("DATA_GO_KR_API_KEY", "")
+        if not onbid_key:
+            return ErrorResponse(
+                error=ErrorType.CONFIG_ERROR,
+                message="Environment variable ONBID_API_KEY (or DATA_GO_KR_API_KEY) is not set.",
+                suggestion="Set ONBID_API_KEY or DATA_GO_KR_API_KEY environment variable.",
+            ).to_dict()
+        return None
+    # AppSettings validation ensures data_go_kr_api_key is set
+    # get_onbid_key() returns data_go_kr_api_key as fallback
     return None
 
 
 def _get_odcloud_key() -> tuple[str, str]:
     """Return (mode, key) for odcloud authentication."""
-    api_key = os.getenv("ODCLOUD_API_KEY", "")
-    if api_key:
-        return "authorization", api_key
-    service_key = os.getenv("ODCLOUD_SERVICE_KEY", "")
-    if service_key:
-        return "serviceKey", service_key
-    fallback_key = os.getenv("DATA_GO_KR_API_KEY", "")
-    if fallback_key:
-        return "serviceKey", fallback_key
-    return "", ""
+    settings = _get_settings_safe()
+    if settings is None:
+        # Fallback to direct environment variable read for backward compatibility
+        api_key = os.getenv("ODCLOUD_API_KEY", "")
+        if api_key:
+            return "authorization", api_key
+        service_key = os.getenv("ODCLOUD_SERVICE_KEY", "")
+        if service_key:
+            return "serviceKey", service_key
+        fallback_key = os.getenv("DATA_GO_KR_API_KEY", "")
+        if fallback_key:
+            return "serviceKey", fallback_key
+        return "", ""
+    return settings.get_odcloud_auth()
 
 
 def _check_odcloud_key() -> dict[str, Any] | None:
     """Return an error dict if odcloud key is not set, else None."""
-    mode, key = _get_odcloud_key()
-    if not mode or not key:
-        return {
-            "error": "config_error",
-            "message": (
-                "Environment variable ODCLOUD_API_KEY "
-                "(or ODCLOUD_SERVICE_KEY, or DATA_GO_KR_API_KEY) "
-                "is not set."
-            ),
-        }
+    settings = _get_settings_safe()
+    if settings is None:
+        # Fallback to direct environment variable check for backward compatibility
+        # This preserves the original behavior where ODCLOUD_API_KEY alone is sufficient
+        mode, key = _get_odcloud_key()
+        if not mode or not key:
+            return ErrorResponse(
+                error=ErrorType.CONFIG_ERROR,
+                message=(
+                    "Environment variable ODCLOUD_API_KEY "
+                    "(or ODCLOUD_SERVICE_KEY, or DATA_GO_KR_API_KEY) "
+                    "is not set."
+                ),
+                suggestion="Set ODCLOUD_API_KEY, ODCLOUD_SERVICE_KEY, or DATA_GO_KR_API_KEY environment variable.",
+            ).to_dict()
+        return None
+    # AppSettings validation ensures data_go_kr_api_key is set
+    # get_odcloud_auth() returns (mode, key) with data_go_kr_api_key as fallback
     return None
 
 
@@ -699,28 +797,31 @@ def validate_lawd_code(code: str) -> tuple[bool, dict[str, Any] | None]:
         Tuple of (is_valid, error_dict_if_invalid)
     """
     if not code:
-        return False, {
-            "error": "invalid_input",
-            "message": "Region code must not be empty. Example: '11440' (Mapo-gu)",
-        }
+        return False, ErrorResponse(
+            error=ErrorType.INVALID_INPUT,
+            message="Region code must not be empty. Example: '11440' (Mapo-gu)",
+            suggestion="Provide a valid 5-digit region code.",
+        ).to_dict()
 
     if not code.isdigit() or len(code) != 5:
-        return False, {
-            "error": "invalid_input",
-            "message": (
+        return False, ErrorResponse(
+            error=ErrorType.INVALID_INPUT,
+            message=(
                 f"Region code must be a 5-digit number. Got: '{code}'. Example: '11440' (Mapo-gu)"
             ),
-        }
+            suggestion="Provide a valid 5-digit region code like '11440'.",
+        ).to_dict()
 
     valid_codes = _load_valid_lawd_codes()
     if code not in valid_codes:
-        return False, {
-            "error": "invalid_input",
-            "message": (
+        return False, ErrorResponse(
+            error=ErrorType.INVALID_INPUT,
+            message=(
                 f"Region code '{code}' is not a valid legal district code. "
                 "Use get_region_code tool to find the correct code."
             ),
-        }
+            suggestion="Use get_region_code tool to find the correct code.",
+        ).to_dict()
 
     return True, None
 
@@ -739,31 +840,34 @@ def validate_deal_ymd(ymd: str) -> tuple[bool, dict[str, Any] | None]:
     from datetime import datetime
 
     if not ymd:
-        return False, {
-            "error": "invalid_input",
-            "message": "Year-month must not be empty. Example: '202501' (January 2025)",
-        }
+        return False, ErrorResponse(
+            error=ErrorType.INVALID_INPUT,
+            message="Year-month must not be empty. Example: '202501' (January 2025)",
+            suggestion="Provide a valid year-month in YYYYMM format.",
+        ).to_dict()
 
     if len(ymd) != 6 or not ymd.isdigit():
-        return False, {
-            "error": "invalid_input",
-            "message": (
+        return False, ErrorResponse(
+            error=ErrorType.INVALID_INPUT,
+            message=(
                 f"Year-month must be in YYYYMM format. Got: '{ymd}'. "
                 "Example: '202501' (January 2025)"
             ),
-        }
+            suggestion="Use YYYYMM format like '202501' for January 2025.",
+        ).to_dict()
 
     year = int(ymd[:4])
     month = int(ymd[4:])
 
     if month < 1 or month > 12:
-        return False, {
-            "error": "invalid_input",
-            "message": (
+        return False, ErrorResponse(
+            error=ErrorType.INVALID_INPUT,
+            message=(
                 f"Month must be between 01 and 12. Got: '{month:02d}'. "
                 "Example: '202501' (January 2025)"
             ),
-        }
+            suggestion="Month must be between 01 and 12.",
+        ).to_dict()
 
     # API data starts from January 2006
     min_year = 2006
@@ -780,22 +884,24 @@ def validate_deal_ymd(ymd: str) -> tuple[bool, dict[str, Any] | None]:
     max_val = max_year * 100 + max_month
 
     if input_val < min_val:
-        return False, {
-            "error": "invalid_input",
-            "message": (
+        return False, ErrorResponse(
+            error=ErrorType.INVALID_INPUT,
+            message=(
                 f"Year-month must be 2006-01 or later. Got: '{ymd}'. "
                 "The API provides data starting from January 2006."
             ),
-        }
+            suggestion="Use a date from January 2006 onwards.",
+        ).to_dict()
 
     if input_val > max_val:
-        return False, {
-            "error": "invalid_input",
-            "message": (
+        return False, ErrorResponse(
+            error=ErrorType.INVALID_INPUT,
+            message=(
                 f"Year-month cannot be in the future. Got: '{ymd}'. "
                 f"Current period: {max_year}{max_month:02d}"
             ),
-        }
+            suggestion="Use a date that is not in the future.",
+        ).to_dict()
 
     return True, None
 
@@ -810,19 +916,21 @@ def validate_pagination(num_of_rows: int) -> tuple[bool, dict[str, Any] | None]:
         Tuple of (is_valid, error_dict_if_invalid)
     """
     if num_of_rows < 1:
-        return False, {
-            "error": "invalid_input",
-            "message": (f"num_of_rows must be at least 1. Got: {num_of_rows}. Example: 100"),
-        }
+        return False, ErrorResponse(
+            error=ErrorType.INVALID_INPUT,
+            message=f"num_of_rows must be at least 1. Got: {num_of_rows}. Example: 100",
+            suggestion="Use a positive number for num_of_rows.",
+        ).to_dict()
 
     if num_of_rows > 1000:
-        return False, {
-            "error": "invalid_input",
-            "message": (
+        return False, ErrorResponse(
+            error=ErrorType.INVALID_INPUT,
+            message=(
                 f"num_of_rows cannot exceed 1000. Got: {num_of_rows}. "
                 "Use multiple requests for more data."
             ),
-        }
+            suggestion="Reduce num_of_rows to 1000 or less, or use multiple requests.",
+        ).to_dict()
 
     return True, None
 
@@ -939,9 +1047,16 @@ def _build_rent_summary(items: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def _api_error_response(error_code: str) -> dict[str, Any]:
-    """Build a standardised API error response dict."""
+    """Build a standardised API error response dict.
+
+    REQ-IN-003: Provides reset time information for daily limit errors.
+    REQ-IN-005: Provides specific, actionable suggestions for each error code.
+    """
     msg = _ERROR_MESSAGES.get(error_code, f"API error code: {error_code}")
-    return {"error": "api_error", "code": error_code, "message": msg}
+    suggestion = _ERROR_SUGGESTIONS.get(
+        error_code, "Check the API documentation for error resolution."
+    )
+    return make_api_error(code=error_code, message=msg, suggestion=suggestion)
 
 
 # ---------------------------------------------------------------------------
@@ -1029,7 +1144,7 @@ async def _run_molit_xml_tool(
     try:
         items, error_code = parser(xml_text)
     except XmlParseError as exc:
-        return {"error": "parse_error", "message": f"XML parse failed: {exc}"}
+        return make_parse_error("XML", str(exc))
 
     if error_code is not None:
         return _api_error_response(error_code)
@@ -1066,14 +1181,13 @@ async def _run_onbid_code_info_tool(
     try:
         items, total_count, error_code, error_message = _parse_onbid_code_info_xml(xml_text)
     except XmlParseError as exc:
-        return {"error": "parse_error", "message": f"XML parse failed: {exc}"}
+        return make_parse_error("XML", str(exc))
 
     if error_code is not None:
-        return {
-            "error": "api_error",
-            "code": error_code,
-            "message": error_message or "Onbid API error",
-        }
+        return make_api_error(
+            code=error_code,
+            message=error_message or "Onbid API error",
+        )
 
     return {
         "total_count": total_count,

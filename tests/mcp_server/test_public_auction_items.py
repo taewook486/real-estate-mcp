@@ -72,7 +72,7 @@ class TestGetPublicAuctionItems:
 
     async def test_invalid_page_returns_validation_error(self) -> None:
         result = await get_public_auction_items(page_no=0)
-        assert result["error"] == "validation_error"
+        assert result["error"] == "invalid_input"
 
     @respx.mock
     async def test_flat_payload_without_response_wrapper(self) -> None:

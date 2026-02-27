@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from real_estate.mcp_server import mcp
+from real_estate.mcp_server.error_types import make_invalid_input_error
 
 
 @mcp.tool()
@@ -15,11 +16,23 @@ def calculate_loan_payment(
 ) -> dict[str, Any]:
     """Calculate equal principal+interest monthly payment (EMI) in 10k KRW units."""
     if principal_10k < 1:
-        return {"error": "validation_error", "message": "principal_10k must be >= 1"}
+        return make_invalid_input_error(
+            field="principal_10k",
+            reason="must be >= 1",
+            example="10000",
+        )
     if annual_rate_pct < 0:
-        return {"error": "validation_error", "message": "annual_rate_pct must be >= 0"}
+        return make_invalid_input_error(
+            field="annual_rate_pct",
+            reason="must be >= 0",
+            example="3.5",
+        )
     if years < 1:
-        return {"error": "validation_error", "message": "years must be >= 1"}
+        return make_invalid_input_error(
+            field="years",
+            reason="must be >= 1",
+            example="30",
+        )
 
     r = annual_rate_pct / 100 / 12
     n = years * 12
@@ -51,13 +64,29 @@ def calculate_compound_growth(
 ) -> dict[str, Any]:
     """Calculate compounded asset growth with initial capital and monthly contributions."""
     if initial_10k < 0:
-        return {"error": "validation_error", "message": "initial_10k must be >= 0"}
+        return make_invalid_input_error(
+            field="initial_10k",
+            reason="must be >= 0",
+            example="1000",
+        )
     if monthly_contribution_10k < 0:
-        return {"error": "validation_error", "message": "monthly_contribution_10k must be >= 0"}
+        return make_invalid_input_error(
+            field="monthly_contribution_10k",
+            reason="must be >= 0",
+            example="50",
+        )
     if annual_rate_pct < 0:
-        return {"error": "validation_error", "message": "annual_rate_pct must be >= 0"}
+        return make_invalid_input_error(
+            field="annual_rate_pct",
+            reason="must be >= 0",
+            example="5.0",
+        )
     if years < 1:
-        return {"error": "validation_error", "message": "years must be >= 1"}
+        return make_invalid_input_error(
+            field="years",
+            reason="must be >= 1",
+            example="10",
+        )
 
     r = annual_rate_pct / 100 / 12
     n = years * 12
@@ -90,9 +119,17 @@ def calculate_monthly_cashflow(
 ) -> dict[str, Any]:
     """Calculate monthly free cashflow after debt service and costs."""
     if monthly_income_10k <= 0:
-        return {"error": "validation_error", "message": "monthly_income_10k must be > 0"}
+        return make_invalid_input_error(
+            field="monthly_income_10k",
+            reason="must be > 0",
+            example="500",
+        )
     if monthly_loan_payment_10k < 0:
-        return {"error": "validation_error", "message": "monthly_loan_payment_10k must be >= 0"}
+        return make_invalid_input_error(
+            field="monthly_loan_payment_10k",
+            reason="must be >= 0",
+            example="100",
+        )
 
     living_cost_auto_applied = monthly_living_cost_10k == 0
     living_cost_used = (

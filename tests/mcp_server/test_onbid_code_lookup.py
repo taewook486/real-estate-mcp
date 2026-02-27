@@ -232,58 +232,58 @@ class TestOnbidCodeLookup:
 
     async def test_validation_error(self) -> None:
         result = await get_onbid_top_code_info(page_no=0)
-        assert result["error"] == "validation_error"
+        assert result["error"] == "invalid_input"
 
         result = await get_onbid_top_code_info(num_of_rows=0)
-        assert result["error"] == "validation_error"
+        assert result["error"] == "invalid_input"
 
         result = await get_onbid_middle_code_info("")
-        assert result["error"] == "validation_error"
+        assert result["error"] == "invalid_input"
 
         result = await get_onbid_middle_code_info("10000", page_no=0)
-        assert result["error"] == "validation_error"
+        assert result["error"] == "invalid_input"
 
         result = await get_onbid_middle_code_info("10000", num_of_rows=0)
-        assert result["error"] == "validation_error"
+        assert result["error"] == "invalid_input"
 
         result = await get_onbid_bottom_code_info("")
-        assert result["error"] == "validation_error"
+        assert result["error"] == "invalid_input"
 
         result = await get_onbid_bottom_code_info("10100", page_no=0)
-        assert result["error"] == "validation_error"
+        assert result["error"] == "invalid_input"
 
         result = await get_onbid_bottom_code_info("10100", num_of_rows=0)
-        assert result["error"] == "validation_error"
+        assert result["error"] == "invalid_input"
 
         result = await get_onbid_addr1_info(page_no=0)
-        assert result["error"] == "validation_error"
+        assert result["error"] == "invalid_input"
 
         result = await get_onbid_addr1_info(num_of_rows=0)
-        assert result["error"] == "validation_error"
+        assert result["error"] == "invalid_input"
 
         result = await get_onbid_addr2_info("")
-        assert result["error"] == "validation_error"
+        assert result["error"] == "invalid_input"
 
         result = await get_onbid_addr2_info("서울특별시", page_no=0)
-        assert result["error"] == "validation_error"
+        assert result["error"] == "invalid_input"
 
         result = await get_onbid_addr2_info("서울특별시", num_of_rows=0)
-        assert result["error"] == "validation_error"
+        assert result["error"] == "invalid_input"
 
         result = await get_onbid_addr3_info("")
-        assert result["error"] == "validation_error"
+        assert result["error"] == "invalid_input"
 
         result = await get_onbid_addr3_info("강남구", page_no=0)
-        assert result["error"] == "validation_error"
+        assert result["error"] == "invalid_input"
 
         result = await get_onbid_addr3_info("강남구", num_of_rows=0)
-        assert result["error"] == "validation_error"
+        assert result["error"] == "invalid_input"
 
         result = await get_onbid_dtl_addr_info("")
-        assert result["error"] == "validation_error"
+        assert result["error"] == "invalid_input"
 
         result = await get_onbid_dtl_addr_info("삼성", page_no=0)
-        assert result["error"] == "validation_error"
+        assert result["error"] == "invalid_input"
 
         result = await get_onbid_dtl_addr_info("삼성", num_of_rows=0)
-        assert result["error"] == "validation_error"
+        assert result["error"] == "invalid_input"

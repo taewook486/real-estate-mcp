@@ -24,11 +24,11 @@ class TestCalculateLoanPayment:
 
     def test_validation_principal_zero(self) -> None:
         result = calculate_loan_payment(principal_10k=0, annual_rate_pct=3.5, years=30)
-        assert result["error"] == "validation_error"
+        assert result["error"] == "invalid_input"
 
     def test_validation_years_zero(self) -> None:
         result = calculate_loan_payment(principal_10k=30000, annual_rate_pct=3.5, years=0)
-        assert result["error"] == "validation_error"
+        assert result["error"] == "invalid_input"
 
 
 class TestCalculateCompoundGrowth:
@@ -78,7 +78,7 @@ class TestCalculateCompoundGrowth:
             annual_rate_pct=5.0,
             years=0,
         )
-        assert result["error"] == "validation_error"
+        assert result["error"] == "invalid_input"
 
 
 class TestCalculateMonthlyCashflow:
@@ -116,4 +116,4 @@ class TestCalculateMonthlyCashflow:
             monthly_loan_payment_10k=100,
             monthly_living_cost_10k=100,
         )
-        assert result["error"] == "validation_error"
+        assert result["error"] == "invalid_input"

@@ -25,6 +25,11 @@ from real_estate.mcp_server._helpers import (
     _get_data_go_kr_key_for_onbid,
     _run_onbid_code_info_tool,
 )
+from real_estate.mcp_server.error_types import (
+    make_api_error,
+    make_invalid_input_error,
+    make_parse_error,
+)
 from real_estate.mcp_server.parsers.onbid import (
     _onbid_extract_items,
     _parse_onbid_thing_info_list_xml,
@@ -97,9 +102,17 @@ async def get_public_auction_items(
         error/message: Present on API/network/config failure.
     """
     if page_no < 1:
-        return {"error": "validation_error", "message": "page_no must be >= 1"}
+        return make_invalid_input_error(
+            field="page_no",
+            reason="must be >= 1",
+            example="1",
+        )
     if num_of_rows < 1:
-        return {"error": "validation_error", "message": "num_of_rows must be >= 1"}
+        return make_invalid_input_error(
+            field="num_of_rows",
+            reason="must be >= 1",
+            example="20",
+        )
 
     err = _check_onbid_api_key()
     if err:
@@ -147,15 +160,14 @@ async def get_public_auction_items(
     if fetch_err:
         return fetch_err
     if not isinstance(payload, dict):
-        return {"error": "parse_error", "message": "Unexpected response type"}
+        return make_parse_error("JSON", "Unexpected response type")
 
     result_code, body, items = _onbid_extract_items(payload)
     if result_code and result_code not in {"00", "000"}:
-        return {
-            "error": "api_error",
-            "code": result_code,
-            "message": str((payload.get("resultMsg") or "")).strip() or "Onbid API error",
-        }
+        return make_api_error(
+            code=result_code,
+            message=str((payload.get("resultMsg") or "")).strip() or "Onbid API error",
+        )
 
     try:
         total_count = int(body.get("totalCount") or 0)
@@ -196,13 +208,29 @@ async def get_public_auction_item_detail(
         error/message: Present on API/network/config failure.
     """
     if not cltr_mng_no.strip():
-        return {"error": "validation_error", "message": "cltr_mng_no is required"}
+        return make_invalid_input_error(
+            field="cltr_mng_no",
+            reason="is required",
+            example="1111000001",
+        )
     if not pbct_cdtn_no.strip():
-        return {"error": "validation_error", "message": "pbct_cdtn_no is required"}
+        return make_invalid_input_error(
+            field="pbct_cdtn_no",
+            reason="is required",
+            example="1",
+        )
     if page_no < 1:
-        return {"error": "validation_error", "message": "page_no must be >= 1"}
+        return make_invalid_input_error(
+            field="page_no",
+            reason="must be >= 1",
+            example="1",
+        )
     if num_of_rows < 1:
-        return {"error": "validation_error", "message": "num_of_rows must be >= 1"}
+        return make_invalid_input_error(
+            field="num_of_rows",
+            reason="must be >= 1",
+            example="20",
+        )
 
     err = _check_onbid_api_key()
     if err:
@@ -222,15 +250,14 @@ async def get_public_auction_item_detail(
     if fetch_err:
         return fetch_err
     if not isinstance(payload, dict):
-        return {"error": "parse_error", "message": "Unexpected response type"}
+        return make_parse_error("JSON", "Unexpected response type")
 
     result_code, body, items = _onbid_extract_items(payload)
     if result_code and result_code not in {"00", "000"}:
-        return {
-            "error": "api_error",
-            "code": result_code,
-            "message": str((payload.get("resultMsg") or "")).strip() or "Onbid API error",
-        }
+        return make_api_error(
+            code=result_code,
+            message=str((payload.get("resultMsg") or "")).strip() or "Onbid API error",
+        )
 
     try:
         total_count = int(body.get("totalCount") or 0)
@@ -324,9 +351,17 @@ async def get_onbid_thing_info_list(
         error/message: Present on API/network/config failure.
     """
     if page_no < 1:
-        return {"error": "validation_error", "message": "page_no must be >= 1"}
+        return make_invalid_input_error(
+            field="page_no",
+            reason="must be >= 1",
+            example="1",
+        )
     if num_of_rows < 1:
-        return {"error": "validation_error", "message": "num_of_rows must be >= 1"}
+        return make_invalid_input_error(
+            field="num_of_rows",
+            reason="must be >= 1",
+            example="20",
+        )
 
     err = _check_onbid_api_key()
     if err:
@@ -370,14 +405,13 @@ async def get_onbid_thing_info_list(
     try:
         items, total_count, error_code, error_message = _parse_onbid_thing_info_list_xml(xml_text)
     except XmlParseError as exc:
-        return {"error": "parse_error", "message": f"XML parse failed: {exc}"}
+        return make_parse_error("XML", str(exc))
 
     if error_code is not None:
-        return {
-            "error": "api_error",
-            "code": error_code,
-            "message": error_message or "Onbid API error",
-        }
+        return make_api_error(
+            code=error_code,
+            message=error_message or "Onbid API error",
+        )
 
     return {
         "total_count": total_count,
@@ -411,9 +445,17 @@ async def get_onbid_top_code_info(
       - CTGR_ID, CTGR_NM, CTGR_HIRK_ID, CTGR_HIRK_NM
     """
     if page_no < 1:
-        return {"error": "validation_error", "message": "page_no must be >= 1"}
+        return make_invalid_input_error(
+            field="page_no",
+            reason="must be >= 1",
+            example="1",
+        )
     if num_of_rows < 1:
-        return {"error": "validation_error", "message": "num_of_rows must be >= 1"}
+        return make_invalid_input_error(
+            field="num_of_rows",
+            reason="must be >= 1",
+            example="100",
+        )
 
     return await _run_onbid_code_info_tool(
         _ONBID_CODE_TOP_URL, {"pageNo": page_no, "numOfRows": num_of_rows}
@@ -434,11 +476,23 @@ async def get_onbid_middle_code_info(
         ctgr_id: Parent CTGR_ID from get_onbid_top_code_info (e.g. "10000").
     """
     if not ctgr_id.strip():
-        return {"error": "validation_error", "message": "ctgr_id is required"}
+        return make_invalid_input_error(
+            field="ctgr_id",
+            reason="is required",
+            example="10000",
+        )
     if page_no < 1:
-        return {"error": "validation_error", "message": "page_no must be >= 1"}
+        return make_invalid_input_error(
+            field="page_no",
+            reason="must be >= 1",
+            example="1",
+        )
     if num_of_rows < 1:
-        return {"error": "validation_error", "message": "num_of_rows must be >= 1"}
+        return make_invalid_input_error(
+            field="num_of_rows",
+            reason="must be >= 1",
+            example="100",
+        )
 
     return await _run_onbid_code_info_tool(
         _ONBID_CODE_MIDDLE_URL,
@@ -460,11 +514,23 @@ async def get_onbid_bottom_code_info(
         ctgr_id: Parent CTGR_ID from get_onbid_middle_code_info (e.g. "10100").
     """
     if not ctgr_id.strip():
-        return {"error": "validation_error", "message": "ctgr_id is required"}
+        return make_invalid_input_error(
+            field="ctgr_id",
+            reason="is required",
+            example="10100",
+        )
     if page_no < 1:
-        return {"error": "validation_error", "message": "page_no must be >= 1"}
+        return make_invalid_input_error(
+            field="page_no",
+            reason="must be >= 1",
+            example="1",
+        )
     if num_of_rows < 1:
-        return {"error": "validation_error", "message": "num_of_rows must be >= 1"}
+        return make_invalid_input_error(
+            field="num_of_rows",
+            reason="must be >= 1",
+            example="100",
+        )
 
     return await _run_onbid_code_info_tool(
         _ONBID_CODE_BOTTOM_URL,
@@ -489,9 +555,17 @@ async def get_onbid_addr1_info(
       - Use SIDO/SGK/EMD when calling get_onbid_thing_info_list
     """
     if page_no < 1:
-        return {"error": "validation_error", "message": "page_no must be >= 1"}
+        return make_invalid_input_error(
+            field="page_no",
+            reason="must be >= 1",
+            example="1",
+        )
     if num_of_rows < 1:
-        return {"error": "validation_error", "message": "num_of_rows must be >= 1"}
+        return make_invalid_input_error(
+            field="num_of_rows",
+            reason="must be >= 1",
+            example="100",
+        )
 
     return await _run_onbid_code_info_tool(
         _ONBID_ADDR1_URL, {"pageNo": page_no, "numOfRows": num_of_rows}
@@ -509,11 +583,23 @@ async def get_onbid_addr2_info(
     Korean keywords: 온비드 주소 코드, 시군구, 주소2, 코드조회
     """
     if not addr1.strip():
-        return {"error": "validation_error", "message": "addr1 is required"}
+        return make_invalid_input_error(
+            field="addr1",
+            reason="is required",
+            example="서울특별시",
+        )
     if page_no < 1:
-        return {"error": "validation_error", "message": "page_no must be >= 1"}
+        return make_invalid_input_error(
+            field="page_no",
+            reason="must be >= 1",
+            example="1",
+        )
     if num_of_rows < 1:
-        return {"error": "validation_error", "message": "num_of_rows must be >= 1"}
+        return make_invalid_input_error(
+            field="num_of_rows",
+            reason="must be >= 1",
+            example="100",
+        )
 
     return await _run_onbid_code_info_tool(
         _ONBID_ADDR2_URL,
@@ -532,11 +618,23 @@ async def get_onbid_addr3_info(
     Korean keywords: 온비드 주소 코드, 읍면동, 주소3, 코드조회
     """
     if not addr2.strip():
-        return {"error": "validation_error", "message": "addr2 is required"}
+        return make_invalid_input_error(
+            field="addr2",
+            reason="is required",
+            example="마포구",
+        )
     if page_no < 1:
-        return {"error": "validation_error", "message": "page_no must be >= 1"}
+        return make_invalid_input_error(
+            field="page_no",
+            reason="must be >= 1",
+            example="1",
+        )
     if num_of_rows < 1:
-        return {"error": "validation_error", "message": "num_of_rows must be >= 1"}
+        return make_invalid_input_error(
+            field="num_of_rows",
+            reason="must be >= 1",
+            example="100",
+        )
 
     return await _run_onbid_code_info_tool(
         _ONBID_ADDR3_URL,
@@ -555,11 +653,23 @@ async def get_onbid_dtl_addr_info(
     Korean keywords: 온비드 주소 코드, 상세주소, 코드조회
     """
     if not addr3.strip():
-        return {"error": "validation_error", "message": "addr3 is required"}
+        return make_invalid_input_error(
+            field="addr3",
+            reason="is required",
+            example="상수동",
+        )
     if page_no < 1:
-        return {"error": "validation_error", "message": "page_no must be >= 1"}
+        return make_invalid_input_error(
+            field="page_no",
+            reason="must be >= 1",
+            example="1",
+        )
     if num_of_rows < 1:
-        return {"error": "validation_error", "message": "num_of_rows must be >= 1"}
+        return make_invalid_input_error(
+            field="num_of_rows",
+            reason="must be >= 1",
+            example="100",
+        )
 
     return await _run_onbid_code_info_tool(
         _ONBID_DTL_ADDR_URL,
